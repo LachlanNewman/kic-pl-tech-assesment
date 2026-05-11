@@ -15,6 +15,25 @@ This repo is a technical assessment for a Platform Lead role at KIC. It uses Nex
 7. Do not install new dependencies without confirming with the candidate first
 8. Prefer explicit error handling over silent failures — return meaningful HTTP status codes
 9. After every code change make sure `npm run test` and `npm run lint` succeeds
+10. Always use the pino logger at `src/lib/logger.ts` for logging — never use `console.log/error/debug`
+
+## Logging Conventions
+
+Every function must follow this pattern:
+
+```ts
+logger.info("functionName: running");
+logger.debug({ param1, param2 }, "functionName: params");
+// ... use logger.debug() for all subsequent statements within the function
+logger.debug({ result }, "functionName: some detail");
+```
+
+- **`info`** — one statement at the top of every function: `"<functionName>: running"`
+- **`debug`** — immediately after, log all input parameters as a context object: `"<functionName>: params"`
+- **`debug`** — all other logging within the function body, each message prefixed with `"<functionName>: "`
+- **`error`** — validation failures, caught exceptions, unexpected states — also prefixed with `"<functionName>: "`
+- Always pass context as the first argument and a message string as the second: `logger.debug({ key: value }, "message")`
+- **Every log message must be prefixed with the function name** — this ensures logs are traceable to their source without a stack trace
 
 ## Tech Stack
 
