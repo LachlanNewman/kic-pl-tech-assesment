@@ -2,7 +2,7 @@
 
 ## Project Context
 
-This repo is a technical assessment for a Platform Lead role at KIC. It uses Next.js 16 App Router with TypeScript, Prisma for database access, and Tailwind CSS for styling. The candidate is building a webhook ingestion service with a unified customer identity layer and a simple internal-tool frontend.
+This repo is a technical assessment for a Platform Lead role at KIC. It uses Next.js 16 App Router with TypeScript, Prisma for database access, and Tailwind CSS for styling. The candidate is building a webhook ingestion service with a unified customer identity layer and a simple internal-tool frontend. please refer to ARCHITECTURE.md for more detailed information.
 
 ## Behaviour Rules
 
@@ -14,6 +14,7 @@ This repo is a technical assessment for a Platform Lead role at KIC. It uses Nex
 6. When creating a migration, always use `npx prisma migrate dev --name <descriptive-name>`
 7. Do not install new dependencies without confirming with the candidate first
 8. Prefer explicit error handling over silent failures — return meaningful HTTP status codes
+9. After every code change make sure `npm run test` and `npm run lint` succeeds
 
 ## Tech Stack
 
