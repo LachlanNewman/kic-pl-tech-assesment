@@ -83,15 +83,35 @@ describe("identityResolution", () => {
     expect(result).toBe("new_cust_1");
   });
 
-  it("2.2 - single match returns the matched customer ID", async () => {
+  it("2.2 - single match writes new signals, writes event, and returns the matched customer ID", async () => {
     mockFindMany.mockResolvedValueOnce([
       { customerId: "cust_existing", type: "email", value: "jane@example.com" },
     ] as Awaited<ReturnType<typeof mockFindMany>>);
+    mockCreateMany.mockResolvedValueOnce({ count: 3 });
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_existing" });
 
     const result = await identityResolution(shopifyOrder);
 
     expect(mockCustomerCreate).not.toHaveBeenCalled();
-    expect(mockEventCreate).not.toHaveBeenCalled();
+    expect(mockCreateMany).toHaveBeenCalledWith({
+      data: [
+        { type: "email", value: "jane@example.com", customerId: "cust_existing" },
+        { type: "phone", value: "+61411000000", customerId: "cust_existing" },
+        { type: "device_id", value: "dev_abc", customerId: "cust_existing" },
+        { type: "shopify_customer_id", value: "cust_shopify_1", customerId: "cust_existing" },
+      ],
+      skipDuplicates: true,
+    });
+    expect(mockEventCreate).toHaveBeenCalledWith({
+      data: {
+        source: "shopify",
+        type: "order.created",
+        externalId: "order_1",
+        payload: JSON.stringify(shopifyOrder),
+        customerId: "cust_existing",
+        occurredAt: new Date("2026-05-12T10:00:00Z"),
+      },
+    });
     expect(result).toBe("cust_existing");
   });
 

@@ -35,7 +35,13 @@ export async function identityResolution(payload: WebhookPayload): Promise<strin
   if (matches.length === 1) {
     logger.debug({}, "identityResolution: single match, resolving existing profile");
     const customerId = matches[0].customerId;
-    return customerId;
+    return prisma.$transaction(async (tx: TransactionClient) => {
+      await createSignals(tx, customerId, signals);
+      logger.debug({ customerId }, "identityResolution: new signals written");
+      await createEvent(tx, input, payload, customerId);
+      logger.debug({ customerId }, "identityResolution: event written");
+      return customerId;
+    });
   }
 
   logger.debug({}, "identityResolution: multiple matches, resolving merge conflict");
