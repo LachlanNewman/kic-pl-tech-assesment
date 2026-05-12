@@ -61,6 +61,8 @@ export async function identityResolution(payload: WebhookPayload): Promise<strin
       data: { mergedInto: winner },
     });
     logger.debug({ winner, losers }, "identityResolution: loser records marked with mergedInto");
+    await createEvent(tx, input, payload, winner);
+    logger.debug({ winner }, "identityResolution: event written");
     return winner;
   });
 }

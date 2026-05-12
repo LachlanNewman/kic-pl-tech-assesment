@@ -127,7 +127,6 @@ describe("identityResolution", () => {
     const result = await identityResolution(shopifyOrder);
 
     expect(mockCustomerCreate).not.toHaveBeenCalled();
-    expect(mockEventCreate).not.toHaveBeenCalled();
     expect(mockSignalUpdateMany).toHaveBeenCalledWith({
       where: { customerId: { in: ["cust_b"] } },
       data: { mergedInto: "cust_a" },
@@ -139,6 +138,16 @@ describe("identityResolution", () => {
     expect(mockCustomerUpdateMany).toHaveBeenCalledWith({
       where: { id: { in: ["cust_b"] } },
       data: { mergedInto: "cust_a" },
+    });
+    expect(mockEventCreate).toHaveBeenCalledWith({
+      data: {
+        source: "shopify",
+        type: "order.created",
+        externalId: "order_1",
+        payload: JSON.stringify(shopifyOrder),
+        customerId: "cust_a",
+        occurredAt: new Date("2026-05-12T10:00:00Z"),
+      },
     });
     expect(result).toBe("cust_a");
   });
