@@ -67,80 +67,71 @@ This does not preclude using external tools for downstream activation (e.g. pipi
 
 *Define the unified customer profile and how it relates to identity signals and source events. A diagram or structured description is fine. Consider: what is the canonical record, how are signals stored as typed edges, and how do source events reference the profile rather than the signal?*
 
-The model has four entities: Profile, Signal, Event, and MergeRecord.
+The model has three entities: Customer, IdentitySignal, and Event. Merge provenance is tracked inline via `mergedInto` foreign keys on all three models rather than a separate MergeRecord table — keeping the schema simple while preserving the full audit trail needed to review or reverse a merge.
 
-### Profile
+### Customer
 
 The canonical customer record. Intentionally thin — it is an identity anchor, not a contact record. Source system details (name, address, membership status) remain in their origin systems and are accessible via the platform IDs stored as signals.
 
 ```
-Profile {
-  id           UUID (PK)
-  display_name String? (convenience field — set from first event that provides a name, first-write-wins)
-  merged_into  UUID? (FK to Profile — set when this profile is the losing side of a merge)
-  created_at   DateTime
-  updated_at   DateTime
+Customer {
+  id                 cuid (PK)
+  createdAt          DateTime
+  updatedAt          DateTime
+  mergedInto         String?   (FK to Customer.id — set on the losing customer when merged into a winner)
 }
 ```
 
-### Signal
+When `mergedInto` is set, this customer record is a loser: all its signals and events have also been stamped with the winning customer ID and are excluded from future identity lookups.
 
-A typed identity signal observed on a profile. One profile can have many signals across multiple types. This is the lookup table — incoming events are matched against signals to find the canonical profile.
+### IdentitySignal
+
+A typed identity signal observed for a customer. One customer can have many signals across multiple types. This is the lookup table — incoming events are matched against signals to find the canonical customer. Signals with `mergedInto` set are excluded from lookups so that merged identities do not re-enter resolution as active matches.
 
 ```
-Signal {
-  id              UUID (PK)
-  profile_id      UUID (FK to Profile)
-  type            String (e.g. "email", "phone", "device_id" — open string, not an enum, so new signal types can be added without a schema migration)
-  value           String
-  source_event_id UUID (FK to Event — which event first introduced this signal)
-  created_at      DateTime
+IdentitySignal {
+  id                 cuid (PK)
+  type               String    (e.g. "email", "phone", "device_id" — open string, not an enum)
+  value              String
+  customerId         String    (FK to Customer.id — the owning customer)
+  mergedInto         String?   (FK to Customer.id — the winning customer; set when owning customer is a merge loser)
+  createdAt          DateTime
+
+  @@unique([type, value])
+  @@index([value])
 }
 ```
+
+The `@@unique([type, value])` constraint enforces that each signal value is owned by exactly one customer at any time. `skipDuplicates: true` on inserts makes signal writes idempotent.
 
 ### Event
 
-The raw webhook payload, resolved to a canonical profile after identity resolution runs. The event references the profile — not the signal — so that when profiles are merged, event history follows the canonical profile automatically.
+The raw webhook payload, resolved to a canonical customer at ingestion time. The event references the customer — not the signal — so future lookups always go to the canonical record. When a merge occurs, a new event is written directly to the winning customer; existing events on losing customers are stamped with `mergedInto` for audit purposes.
 
 ```
 Event {
-  id          UUID (PK)
-  profile_id  UUID? (FK to Profile — nullable until resolution completes)
-  source      Enum: shopify | mindbody
-  event_type  String (e.g. order.created, booking.created)
-  payload     JSON (raw webhook body)
-  external_id String (source system's own ID — used for idempotency)
-  created_at  DateTime
+  id                 cuid (PK)
+  source             String    ("shopify" | "mindbody")
+  type               String    (e.g. "order.created", "booking.created")
+  externalId         String    @unique (source system's own ID — idempotency guard)
+  payload            String    (raw JSON webhook body)
+  customerId         String    (FK to Customer.id — the resolved customer)
+  mergedInto         String?   (FK to Customer.id — the winning customer; set when owning customer is a merge loser)
+  occurredAt         DateTime
+  createdAt          DateTime
 }
 ```
 
-`external_id` + `source` must be unique — this is the idempotency guard that prevents duplicate webhook deliveries from creating duplicate records.
-
-### MergeRecord
-
-Created whenever two profiles are unified. Captures the full provenance of the merge so it can be reviewed or reversed. Reversing a merge means clearing `merged_into` on the losing profile and deleting the MergeRecord — no event or signal data is lost.
-
-```
-MergeRecord {
-  id                      UUID (PK)
-  winning_profile_id      UUID (FK to Profile)
-  losing_profile_id       UUID (FK to Profile)
-  triggered_by_event_id   UUID (FK to Event)
-  triggering_signal_type  String
-  triggering_signal_value String
-  created_at              DateTime
-}
-```
+`externalId` is unique globally — this prevents duplicate webhook deliveries from creating duplicate records.
 
 ### Entity relationships
 
 ```
-Profile ──< Signal
-Profile ──< Event
-Profile ──< MergeRecord (as winner)
-Profile ──< MergeRecord (as loser)
-Event ──< Signal (via source_event_id)
-Event ──  MergeRecord (via triggered_by_event_id)
+Customer ──< IdentitySignal  (via customerId)
+Customer ──< Event           (via customerId)
+Customer ──  Customer        (via mergedInto — self-referential, loser → winner)
+IdentitySignal ──  Customer  (via mergedInto — loser signal → winning customer)
+Event          ──  Customer  (via mergedInto — loser event → winning customer)
 ```
 
 ---
