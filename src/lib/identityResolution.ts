@@ -1,5 +1,6 @@
 import { WebhookPayload } from "@/types";
 import { getNormalizedInput, normalizeSignals, createSignals } from "./signals";
+import { createEvent } from "./events";
 import { getCustomerIdsFromSignals } from "./identity/getCustomerIdsFromSignals";
 import { createCustomerProfile } from "./identity/createCustomerProfile";
 import { resolveProfileMergeConflict } from "./identity/resolveProfileMergeConflict";
@@ -25,6 +26,8 @@ export async function identityResolution(payload: WebhookPayload): Promise<strin
       logger.debug({ customerId }, "identityResolution: new customer profile created");
       await createSignals(tx, customerId, signals);
       logger.debug({ customerId }, "identityResolution: signals written");
+      await createEvent(tx, input, payload, customerId);
+      logger.debug({ customerId }, "identityResolution: event written");
       return customerId;
     });
   }

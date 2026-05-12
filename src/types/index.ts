@@ -45,6 +45,6 @@ export const MindbodyBookingSchema = z.object({
 
 export type MindbodyBooking = z.infer<typeof MindbodyBookingSchema>;
 
-export type ShopifyWebhookPayload = ShopifyOrder & { source: "shopify" };
-export type MindbodyWebhookPayload = MindbodyBooking & { source: "mindbody" };
+export type ShopifyWebhookPayload = ShopifyOrder & { source: "shopify"; type: "order.created" };
+export type MindbodyWebhookPayload = MindbodyBooking & { source: "mindbody"; type: "booking.created" };
 export type WebhookPayload = ShopifyWebhookPayload | MindbodyWebhookPayload;

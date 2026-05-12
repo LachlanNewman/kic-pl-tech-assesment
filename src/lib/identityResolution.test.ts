@@ -15,9 +15,11 @@ const mockFindMany = vi.mocked(prisma.identitySignal.findMany);
 const mockCustomerCreate = vi.mocked(prisma.customer.create);
 const mockTransaction = vi.mocked(prisma.$transaction);
 const mockCreateMany = vi.fn();
+const mockEventCreate = vi.fn();
 
 const shopifyOrder: ShopifyWebhookPayload = {
   source: "shopify",
+  type: "order.created",
   id: "order_1",
   customer_id: "cust_shopify_1",
   email: "jane@example.com",
@@ -28,6 +30,7 @@ const shopifyOrder: ShopifyWebhookPayload = {
 
 const nullShopifyOrder: ShopifyWebhookPayload = {
   source: "shopify",
+  type: "order.created",
   id: "order_2",
   customer_id: null,
   email: null,
@@ -39,18 +42,21 @@ const nullShopifyOrder: ShopifyWebhookPayload = {
 describe("identityResolution", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockTransaction.mockImplementation((fn: (tx: unknown) => unknown) =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockTransaction.mockImplementation((fn: any) =>
       fn({
         customer: { create: mockCustomerCreate },
         identitySignal: { createMany: mockCreateMany },
+        event: { create: mockEventCreate },
       })
     );
   });
 
-  it("2.1 - no signal matches creates a new customer, writes signals, and returns its ID", async () => {
+  it("2.1 - no signal matches creates a new customer, writes signals, writes event, and returns its ID", async () => {
     mockFindMany.mockResolvedValueOnce([]);
     mockCustomerCreate.mockResolvedValueOnce({ id: "new_cust_1", createdAt: new Date(), updatedAt: new Date() });
-    mockCreateMany.mockResolvedValueOnce({ count: 3 });
+    mockCreateMany.mockResolvedValueOnce({ count: 4 });
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" });
 
     const result = await identityResolution(shopifyOrder);
 
@@ -64,6 +70,16 @@ describe("identityResolution", () => {
       ],
       skipDuplicates: true,
     });
+    expect(mockEventCreate).toHaveBeenCalledWith({
+      data: {
+        source: "shopify",
+        type: "order.created",
+        externalId: "order_1",
+        payload: JSON.stringify(shopifyOrder),
+        customerId: "new_cust_1",
+        occurredAt: new Date("2026-05-12T10:00:00Z"),
+      },
+    });
     expect(result).toBe("new_cust_1");
   });
 
@@ -75,6 +91,7 @@ describe("identityResolution", () => {
     const result = await identityResolution(shopifyOrder);
 
     expect(mockCustomerCreate).not.toHaveBeenCalled();
+    expect(mockEventCreate).not.toHaveBeenCalled();
     expect(result).toBe("cust_existing");
   });
 
@@ -87,17 +104,29 @@ describe("identityResolution", () => {
     const result = await identityResolution(shopifyOrder);
 
     expect(mockCustomerCreate).not.toHaveBeenCalled();
+    expect(mockEventCreate).not.toHaveBeenCalled();
     expect(result).toBe("cust_a");
   });
 
-  it("2.4 - all-null signals creates a new customer with no signals and returns its ID", async () => {
+  it("2.4 - all-null signals creates a new customer with no signals, writes event, and returns its ID", async () => {
     mockFindMany.mockResolvedValueOnce([]);
     mockCustomerCreate.mockResolvedValueOnce({ id: "new_cust_2", createdAt: new Date(), updatedAt: new Date() });
     mockCreateMany.mockResolvedValueOnce({ count: 0 });
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_2" });
 
     const result = await identityResolution(nullShopifyOrder);
 
     expect(mockCreateMany).toHaveBeenCalledWith({ data: [], skipDuplicates: true });
+    expect(mockEventCreate).toHaveBeenCalledWith({
+      data: {
+        source: "shopify",
+        type: "order.created",
+        externalId: "order_2",
+        payload: JSON.stringify(nullShopifyOrder),
+        customerId: "new_cust_2",
+        occurredAt: new Date("2026-05-12T10:00:00Z"),
+      },
+    });
     expect(result).toBe("new_cust_2");
   });
 });
