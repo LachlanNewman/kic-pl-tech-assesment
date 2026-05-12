@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MindbodyBookingSchema } from "@/types";
 import z from "zod/v4";
-import { normalizeSignals } from "@/lib/signals";
-import { getCustomerIdsFromSignals, resolveCustomerIdentity } from "@/lib/identity";
+import { identityResolution } from "@/lib/identityResolution";
 import logger from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
@@ -19,7 +18,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const signals = normalizeSignals({
+  const customerId = await identityResolution({
     source: "mindbody",
     signals: {
       email: result.data.client_email,
@@ -28,9 +27,6 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  const customerSignalMatches = await getCustomerIdsFromSignals(signals);
-  const customerId = await resolveCustomerIdentity(customerSignalMatches);
-
-  logger.debug({ bookingId: result.data.id, signalCount: signals.length, customerId }, "POST /api/webhooks/mindbody: processed");
+  logger.debug({ bookingId: result.data.id, customerId }, "POST /api/webhooks/mindbody: processed");
   return NextResponse.json({ received: true });
 }
