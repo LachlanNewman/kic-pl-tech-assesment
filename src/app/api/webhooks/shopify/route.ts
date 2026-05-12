@@ -17,15 +17,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const customerId = await identityResolution({
-    source: "shopify",
-    signals: {
-      email: result.data.email,
-      phone: result.data.phone,
-      device_id: result.data.device_id,
-      shopify_customer_id: result.data.customer_id,
-    },
-  });
+  const customerId = await identityResolution({ source: "shopify", ...result.data });
 
   logger.debug({ orderId: result.data.id, customerId }, "POST /api/webhooks/shopify: processed");
   return NextResponse.json({ received: true });

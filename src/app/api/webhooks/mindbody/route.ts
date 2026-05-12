@@ -18,14 +18,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const customerId = await identityResolution({
-    source: "mindbody",
-    signals: {
-      email: result.data.client_email,
-      phone: result.data.phone,
-      mindbody_client_id: result.data.client_id,
-    },
-  });
+  const customerId = await identityResolution({ source: "mindbody", ...result.data });
 
   logger.debug({ bookingId: result.data.id, customerId }, "POST /api/webhooks/mindbody: processed");
   return NextResponse.json({ received: true });

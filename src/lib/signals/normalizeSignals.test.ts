@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeSignals } from "./signals";
+import { normalizeSignals } from "./normalizeSignals";
 import { NormalizedInput } from "@/types";
 
 describe("normalizeSignals", () => {

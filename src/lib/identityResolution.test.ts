@@ -1,7 +1,7 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { prisma } from "@/lib/db";
 import { identityResolution } from "./identityResolution";
-import type { NormalizedInput } from "@/types";
+import type { ShopifyWebhookPayload } from "@/types";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -17,13 +17,24 @@ vi.mock("@/lib/db", () => ({
 const mockFindMany = vi.mocked(prisma.identitySignal.findMany);
 const mockCustomerCreate = vi.mocked(prisma.customer.create);
 
-const shopifyInput: NormalizedInput = {
+const shopifyOrder: ShopifyWebhookPayload = {
   source: "shopify",
-  signals: {
-    email: "jane@example.com",
-    phone: "+61411000000",
-    shopify_customer_id: "cust_shopify_1",
-  },
+  id: "order_1",
+  customer_id: "cust_shopify_1",
+  email: "jane@example.com",
+  phone: "+61411000000",
+  device_id: "dev_abc",
+  created_at: "2026-05-12T10:00:00Z",
+};
+
+const nullShopifyOrder: ShopifyWebhookPayload = {
+  source: "shopify",
+  id: "order_2",
+  customer_id: null,
+  email: null,
+  phone: null,
+  device_id: null,
+  created_at: "2026-05-12T10:00:00Z",
 };
 
 describe("identityResolution", () => {
@@ -35,7 +46,7 @@ describe("identityResolution", () => {
     mockFindMany.mockResolvedValueOnce([]);
     mockCustomerCreate.mockResolvedValueOnce({ id: "new_cust_1", createdAt: new Date(), updatedAt: new Date() });
 
-    const result = await identityResolution(shopifyInput);
+    const result = await identityResolution(shopifyOrder);
 
     expect(mockCustomerCreate).toHaveBeenCalledWith({ data: {} });
     expect(result).toBe("new_cust_1");
@@ -46,7 +57,7 @@ describe("identityResolution", () => {
       { customerId: "cust_existing", type: "email", value: "jane@example.com" },
     ] as Awaited<ReturnType<typeof mockFindMany>>);
 
-    const result = await identityResolution(shopifyInput);
+    const result = await identityResolution(shopifyOrder);
 
     expect(mockCustomerCreate).not.toHaveBeenCalled();
     expect(result).toBe("cust_existing");
@@ -58,21 +69,17 @@ describe("identityResolution", () => {
       { customerId: "cust_b", type: "phone", value: "+61411000000" },
     ] as Awaited<ReturnType<typeof mockFindMany>>);
 
-    const result = await identityResolution(shopifyInput);
+    const result = await identityResolution(shopifyOrder);
 
     expect(mockCustomerCreate).not.toHaveBeenCalled();
     expect(result).toBe("cust_a");
   });
 
   it("2.4 - all-null signals creates a new customer and returns its ID", async () => {
-    const nullInput: NormalizedInput = {
-      source: "shopify",
-      signals: { email: null, phone: null, device_id: null, shopify_customer_id: null },
-    };
     mockFindMany.mockResolvedValueOnce([]);
     mockCustomerCreate.mockResolvedValueOnce({ id: "new_cust_2", createdAt: new Date(), updatedAt: new Date() });
 
-    const result = await identityResolution(nullInput);
+    const result = await identityResolution(nullShopifyOrder);
 
     expect(result).toBe("new_cust_2");
   });

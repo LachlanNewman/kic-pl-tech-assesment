@@ -1,14 +1,16 @@
-import { NormalizedInput } from "@/types";
-import { normalizeSignals } from "./signals";
+import { WebhookPayload } from "@/types";
+import { getNormalizedInput, normalizeSignals } from "./signals";
 import { getCustomerIdsFromSignals } from "./identity/getCustomerIdsFromSignals";
 import { createCustomerProfile } from "./identity/createCustomerProfile";
 import { resolveExistingProfile } from "./identity/resolveExistingProfile";
 import { resolveProfileMergeConflict } from "./identity/resolveProfileMergeConflict";
 import logger from "./logger";
 
-export async function identityResolution(input: NormalizedInput): Promise<string> {
+export async function identityResolution(payload: WebhookPayload): Promise<string> {
   logger.info("identityResolution: running");
-  logger.debug({ source: input.source }, "identityResolution: params");
+
+  const input = getNormalizedInput(payload);
+  logger.debug({ source: input.source }, "identityResolution: normalized input");
 
   const signals = normalizeSignals(input);
   logger.debug({ signalCount: signals.length }, "identityResolution: signals normalized");

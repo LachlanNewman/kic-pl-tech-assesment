@@ -1,5 +1,5 @@
 import { NormalizedInput, Signal } from "@/types";
-import logger from "./logger";
+import logger from "../logger";
 
 function normalizeEmail(email: string): string {
   return email.toLowerCase().trim();
