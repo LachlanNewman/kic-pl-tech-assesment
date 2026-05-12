@@ -12,7 +12,6 @@ export async function createSignals(
 
   await tx.identitySignal.createMany({
     data: signals.map((s) => ({ type: s.type, value: s.value, customerId })),
-    skipDuplicates: true,
   });
 
   logger.debug({ customerId, count: signals.length }, "createSignals: signals written");

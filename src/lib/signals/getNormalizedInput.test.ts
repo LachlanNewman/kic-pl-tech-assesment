@@ -4,6 +4,7 @@ import type { ShopifyWebhookPayload, MindbodyWebhookPayload } from "@/types";
 
 const shopifyOrder: ShopifyWebhookPayload = {
   source: "shopify",
+  type: "order.created",
   id: "order_1",
   customer_id: "cust_shopify_1",
   email: "jane@example.com",
@@ -14,6 +15,7 @@ const shopifyOrder: ShopifyWebhookPayload = {
 
 const mindbodyBooking: MindbodyWebhookPayload = {
   source: "mindbody",
+  type: "booking.created",
   id: "booking_1",
   client_id: "mb_client_1",
   client_email: "jane@example.com",

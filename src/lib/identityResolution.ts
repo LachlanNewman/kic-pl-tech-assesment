@@ -1,6 +1,6 @@
 import { WebhookPayload } from "@/types";
 import { getNormalizedInput, normalizeSignals, createSignals } from "./signals";
-import { createEvent } from "./events";
+import { createEvent, findEventByExternalId } from "./events";
 import { getCustomerIdsFromSignals } from "./identity/getCustomerIdsFromSignals";
 import { createCustomerProfile } from "./identity/createCustomerProfile";
 import { resolveProfileMergeConflict } from "./identity/resolveProfileMergeConflict";
@@ -9,6 +9,12 @@ import { prisma, TransactionClient } from "./db";
 
 export async function identityResolution(payload: WebhookPayload): Promise<string> {
   logger.info("identityResolution: running");
+
+  const existingCustomerId = await findEventByExternalId(payload.id);
+  if (existingCustomerId) {
+    logger.debug({ externalId: payload.id, existingCustomerId }, "identityResolution: duplicate event, returning existing customer");
+    return existingCustomerId;
+  }
 
   const input = getNormalizedInput(payload);
   logger.debug({ source: input.source }, "identityResolution: normalized input");
@@ -20,7 +26,7 @@ export async function identityResolution(payload: WebhookPayload): Promise<strin
   logger.debug({ matchCount: matches.length }, "identityResolution: matches found");
 
   if (matches.length === 0) {
-    logger.debug({}, "identityResolution: no matches, creating new profile");
+    logger.debug("identityResolution: no matches, creating new profile");
     return prisma.$transaction(async (tx: TransactionClient) => {
       const customerId = await createCustomerProfile(tx);
       logger.debug({ customerId }, "identityResolution: new customer profile created");
@@ -33,8 +39,8 @@ export async function identityResolution(payload: WebhookPayload): Promise<strin
   }
 
   if (matches.length === 1) {
-    logger.debug({}, "identityResolution: single match, resolving existing profile");
     const customerId = matches[0].customerId;
+    logger.debug({ customerId }, "identityResolution: single match found");
     return prisma.$transaction(async (tx: TransactionClient) => {
       await createSignals(tx, customerId, signals);
       logger.debug({ customerId }, "identityResolution: new signals written");
@@ -52,17 +58,19 @@ export async function identityResolution(payload: WebhookPayload): Promise<strin
       where: { customerId: { in: losers } },
       data: { mergedInto: winner },
     });
+    logger.debug({ winner, losers }, "identityResolution: identity signals merged");
     await tx.event.updateMany({
       where: { customerId: { in: losers } },
       data: { mergedInto: winner },
     });
+    logger.debug({ winner, losers }, "identityResolution: events merged");
     await tx.customer.updateMany({
       where: { id: { in: losers } },
       data: { mergedInto: winner },
     });
-    logger.debug({ winner, losers }, "identityResolution: loser records marked with mergedInto");
+    logger.debug({ winner, losers }, "identityResolution: customer profiles merged");
     await createEvent(tx, input, payload, winner);
-    logger.debug({ winner }, "identityResolution: event written");
+    logger.debug({ winner }, "identityResolution: event written for winner profile");
     return winner;
   });
 }

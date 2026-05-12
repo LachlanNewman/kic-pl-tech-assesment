@@ -22,19 +22,16 @@ export async function createEvent(
   logger.info("createEvent: running");
   logger.debug({ source: input.source, type: payload.type, customerId }, "createEvent: params");
 
-  const externalId = payload.id;
   const occurredAt = getEventOccurredAt(payload);
 
   await tx.event.create({
     data: {
       source: input.source,
       type: payload.type,
-      externalId,
+      externalId: payload.id,
       payload: JSON.stringify(payload),
       customerId,
       occurredAt,
     },
   });
-
-  logger.debug({ customerId, externalId }, "createEvent: event written");
 }

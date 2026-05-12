@@ -7,12 +7,14 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     identitySignal: { findMany: vi.fn() },
     customer: { create: vi.fn() },
+    event: { findUnique: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
 
 const mockFindMany = vi.mocked(prisma.identitySignal.findMany);
 const mockCustomerCreate = vi.mocked(prisma.customer.create);
+const mockEventFindUnique = vi.mocked(prisma.event.findUnique);
 const mockTransaction = vi.mocked(prisma.$transaction);
 const mockCreateMany = vi.fn();
 const mockSignalUpdateMany = vi.fn();
@@ -45,6 +47,7 @@ const nullShopifyOrder: ShopifyWebhookPayload = {
 describe("identityResolution", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEventFindUnique.mockResolvedValue(null);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockTransaction.mockImplementation((fn: any) =>
       fn({
@@ -53,6 +56,16 @@ describe("identityResolution", () => {
         event: { create: mockEventCreate, updateMany: mockEventUpdateMany },
       })
     );
+  });
+
+  it("2.0 - duplicate externalId returns existing customerId without reprocessing", async () => {
+    mockEventFindUnique.mockResolvedValueOnce({ customerId: "cust_existing" } as Awaited<ReturnType<typeof mockEventFindUnique>>);
+
+    const result = await identityResolution(shopifyOrder);
+
+    expect(result).toBe("cust_existing");
+    expect(mockFindMany).not.toHaveBeenCalled();
+    expect(mockTransaction).not.toHaveBeenCalled();
   });
 
   it("2.1 - no signal matches creates a new customer, writes signals, writes event, and returns its ID", async () => {
@@ -71,7 +84,6 @@ describe("identityResolution", () => {
         { type: "device_id", value: "dev_abc", customerId: "new_cust_1" },
         { type: "shopify_customer_id", value: "cust_shopify_1", customerId: "new_cust_1" },
       ],
-      skipDuplicates: true,
     });
     expect(mockEventCreate).toHaveBeenCalledWith({
       data: {
@@ -103,7 +115,6 @@ describe("identityResolution", () => {
         { type: "device_id", value: "dev_abc", customerId: "cust_existing" },
         { type: "shopify_customer_id", value: "cust_shopify_1", customerId: "cust_existing" },
       ],
-      skipDuplicates: true,
     });
     expect(mockEventCreate).toHaveBeenCalledWith({
       data: {
@@ -160,7 +171,7 @@ describe("identityResolution", () => {
 
     const result = await identityResolution(nullShopifyOrder);
 
-    expect(mockCreateMany).toHaveBeenCalledWith({ data: [], skipDuplicates: true });
+    expect(mockCreateMany).toHaveBeenCalledWith({ data: [] });
     expect(mockEventCreate).toHaveBeenCalledWith({
       data: {
         source: "shopify",

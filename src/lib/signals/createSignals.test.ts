@@ -28,7 +28,6 @@ describe("createSignals", () => {
         { type: "email", value: "a@b.com", customerId: "cust_1" },
         { type: "phone", value: "0400000000", customerId: "cust_1" },
       ],
-      skipDuplicates: true,
     });
   });
 
@@ -37,7 +36,7 @@ describe("createSignals", () => {
 
     await createSignals(tx, "cust_1", []);
 
-    expect(mockCreateMany).toHaveBeenCalledWith({ data: [], skipDuplicates: true });
+    expect(mockCreateMany).toHaveBeenCalledWith({ data: [] });
   });
 
   it("propagates unexpected errors thrown by createMany", async () => {
