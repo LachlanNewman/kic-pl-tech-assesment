@@ -5,6 +5,11 @@ export type Signal = {
   value: string;
 };
 
+export type CustomerSignalMatch = {
+  customerId: string;
+  matchedSignals: Signal[];
+};
+
 export type SignalFields = {
   email?: string | null;
   phone?: string | null;
