@@ -2,15 +2,8 @@ import { vi, describe, it, expect } from "vitest";
 import { NextRequest } from "next/server";
 import { POST } from "./route";
 
-vi.mock("@/lib/db", () => ({
-  prisma: {
-    identitySignal: {
-      findMany: vi.fn().mockResolvedValue([]),
-    },
-    customer: {
-      create: vi.fn().mockResolvedValue({ id: "new_cust_test", createdAt: new Date(), updatedAt: new Date() }),
-    },
-  },
+vi.mock("@/lib/identityResolution", () => ({
+  identityResolution: vi.fn().mockResolvedValue("cust_test"),
 }));
 
 function makeRequest(body: unknown): NextRequest {

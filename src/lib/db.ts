@@ -8,3 +8,7 @@ export const prisma =
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
+
+  export type TransactionClient = Parameters<
+    Parameters<typeof prisma.$transaction>[0]
+  >[0];

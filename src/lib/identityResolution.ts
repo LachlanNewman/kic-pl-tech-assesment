@@ -2,9 +2,9 @@ import { WebhookPayload } from "@/types";
 import { getNormalizedInput, normalizeSignals } from "./signals";
 import { getCustomerIdsFromSignals } from "./identity/getCustomerIdsFromSignals";
 import { createCustomerProfile } from "./identity/createCustomerProfile";
-import { resolveExistingProfile } from "./identity/resolveExistingProfile";
 import { resolveProfileMergeConflict } from "./identity/resolveProfileMergeConflict";
 import logger from "./logger";
+import { prisma, TransactionClient } from "./db";
 
 export async function identityResolution(payload: WebhookPayload): Promise<string> {
   logger.info("identityResolution: running");
@@ -20,12 +20,17 @@ export async function identityResolution(payload: WebhookPayload): Promise<strin
 
   if (matches.length === 0) {
     logger.debug({}, "identityResolution: no matches, creating new profile");
-    return createCustomerProfile();
+    return prisma.$transaction(async (tx:TransactionClient) => {
+      const customerId = await createCustomerProfile(tx);
+      logger.debug({ customerId }, "identityResolution: new customer profile created");
+      return customerId
+    });
   }
 
   if (matches.length === 1) {
     logger.debug({}, "identityResolution: single match, resolving existing profile");
-    return resolveExistingProfile(matches[0]);
+    const customerId = matches[0].customerId;
+    return customerId;
   }
 
   logger.debug({}, "identityResolution: multiple matches, resolving merge conflict");

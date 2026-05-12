@@ -1,16 +1,12 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
-import { prisma } from "@/lib/db";
 import { createCustomerProfile } from "./createCustomerProfile";
+import { TransactionClient } from "../db";
 
-vi.mock("@/lib/db", () => ({
-  prisma: {
-    customer: {
-      create: vi.fn(),
-    },
-  },
-}));
+const mockCreate = vi.fn();
 
-const mockCustomerCreate = vi.mocked(prisma.customer.create);
+const tx = {
+  customer: { create: mockCreate },
+} as unknown as TransactionClient;
 
 describe("createCustomerProfile", () => {
   beforeEach(() => {
@@ -18,11 +14,11 @@ describe("createCustomerProfile", () => {
   });
 
   it("creates a new Customer record and returns its ID", async () => {
-    mockCustomerCreate.mockResolvedValueOnce({ id: "new_cust_1", createdAt: new Date(), updatedAt: new Date() });
+    mockCreate.mockResolvedValueOnce({ id: "new_cust_1", createdAt: new Date(), updatedAt: new Date() });
 
-    const result = await createCustomerProfile();
+    const result = await createCustomerProfile(tx);
 
-    expect(mockCustomerCreate).toHaveBeenCalledWith({ data: {} });
+    expect(mockCreate).toHaveBeenCalledWith({ data: {} });
     expect(result).toBe("new_cust_1");
   });
 });

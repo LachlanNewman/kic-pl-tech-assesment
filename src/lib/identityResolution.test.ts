@@ -5,17 +5,15 @@ import type { ShopifyWebhookPayload } from "@/types";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    identitySignal: {
-      findMany: vi.fn(),
-    },
-    customer: {
-      create: vi.fn(),
-    },
+    identitySignal: { findMany: vi.fn() },
+    customer: { create: vi.fn() },
+    $transaction: vi.fn(),
   },
 }));
 
 const mockFindMany = vi.mocked(prisma.identitySignal.findMany);
 const mockCustomerCreate = vi.mocked(prisma.customer.create);
+const mockTransaction = vi.mocked(prisma.$transaction);
 
 const shopifyOrder: ShopifyWebhookPayload = {
   source: "shopify",
@@ -40,6 +38,9 @@ const nullShopifyOrder: ShopifyWebhookPayload = {
 describe("identityResolution", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockTransaction.mockImplementation((fn: (tx: unknown) => unknown) =>
+      fn({ customer: { create: mockCustomerCreate } })
+    );
   });
 
   it("2.1 - no signal matches creates a new customer and returns its ID", async () => {
