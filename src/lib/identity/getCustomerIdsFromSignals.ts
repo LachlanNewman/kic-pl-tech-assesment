@@ -12,7 +12,7 @@ export async function getCustomerIdsFromSignals(signals: Signal[]): Promise<Cust
   }
 
   const rows = await prisma.identitySignal.findMany({
-    where: { mergedInto: null, OR: signals.map((s) => ({ type: s.type, value: s.value })) },
+    where: { OR: signals.map((s) => ({ type: s.type, value: s.value })) },
     select: { customerId: true, type: true, value: true },
   });
 

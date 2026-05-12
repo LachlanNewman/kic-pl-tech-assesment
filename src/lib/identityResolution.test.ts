@@ -17,10 +17,11 @@ const mockCustomerCreate = vi.mocked(prisma.customer.create);
 const mockEventFindUnique = vi.mocked(prisma.event.findUnique);
 const mockTransaction = vi.mocked(prisma.$transaction);
 const mockCreateMany = vi.fn();
-const mockSignalUpdateMany = vi.fn();
-const mockEventUpdateMany = vi.fn();
 const mockCustomerUpdateMany = vi.fn();
 const mockEventCreate = vi.fn();
+const mockSignalFindMany = vi.fn();
+const mockEventFindManyTx = vi.fn();
+const mockMergeLogCreate = vi.fn();
 
 const shopifyOrder: ShopifyWebhookPayload = {
   source: "shopify",
@@ -52,8 +53,9 @@ describe("identityResolution", () => {
     mockTransaction.mockImplementation((fn: any) =>
       fn({
         customer: { create: mockCustomerCreate, updateMany: mockCustomerUpdateMany },
-        identitySignal: { createMany: mockCreateMany, updateMany: mockSignalUpdateMany },
-        event: { create: mockEventCreate, updateMany: mockEventUpdateMany },
+        identitySignal: { createMany: mockCreateMany, findMany: mockSignalFindMany },
+        event: { create: mockEventCreate, findMany: mockEventFindManyTx },
+        mergeLog: { create: mockMergeLogCreate },
       })
     );
   });
@@ -129,22 +131,33 @@ describe("identityResolution", () => {
     expect(result).toBe("cust_existing");
   });
 
-  it("2.3 - multiple matches marks all loser records with mergedInto, and returns the winner ID", async () => {
+  it("2.3 - multiple matches creates a merge log per loser and returns the winner ID", async () => {
     mockFindMany.mockResolvedValueOnce([
       { customerId: "cust_a", type: "email", value: "jane@example.com" },
       { customerId: "cust_b", type: "phone", value: "+61411000000" },
     ] as Awaited<ReturnType<typeof mockFindMany>>);
+    mockSignalFindMany.mockResolvedValueOnce([{ id: "sig_b1" }]);
+    mockEventFindManyTx.mockResolvedValueOnce([{ id: "evt_b1" }]);
+    mockMergeLogCreate.mockResolvedValueOnce({ id: "merge_1" });
 
     const result = await identityResolution(shopifyOrder);
 
     expect(mockCustomerCreate).not.toHaveBeenCalled();
-    expect(mockSignalUpdateMany).toHaveBeenCalledWith({
-      where: { customerId: { in: ["cust_b"] } },
-      data: { mergedInto: "cust_a" },
+    expect(mockSignalFindMany).toHaveBeenCalledWith({
+      where: { customerId: "cust_b" },
+      select: { id: true },
     });
-    expect(mockEventUpdateMany).toHaveBeenCalledWith({
-      where: { customerId: { in: ["cust_b"] } },
-      data: { mergedInto: "cust_a" },
+    expect(mockEventFindManyTx).toHaveBeenCalledWith({
+      where: { customerId: "cust_b" },
+      select: { id: true },
+    });
+    expect(mockMergeLogCreate).toHaveBeenCalledWith({
+      data: {
+        winnerId: "cust_a",
+        loserId: "cust_b",
+        mergedSignals: { create: [{ identitySignalId: "sig_b1" }] },
+        mergedEvents: { create: [{ eventId: "evt_b1" }] },
+      },
     });
     expect(mockCustomerUpdateMany).toHaveBeenCalledWith({
       where: { id: { in: ["cust_b"] } },

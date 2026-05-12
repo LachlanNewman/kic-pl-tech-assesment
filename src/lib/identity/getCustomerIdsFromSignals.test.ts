@@ -79,14 +79,14 @@ describe("getCustomerIdsFromSignals", () => {
     expect(result).toEqual([]);
   });
 
-  it("excludes merged signals by querying with mergedInto: null", async () => {
+  it("queries signals by type and value only", async () => {
     const signal: Signal = { type: "email", value: "jane@example.com" };
     mockFindMany.mockResolvedValueOnce([]);
 
     await getCustomerIdsFromSignals([signal]);
 
     expect(mockFindMany).toHaveBeenCalledWith({
-      where: { mergedInto: null, OR: [{ type: "email", value: "jane@example.com" }] },
+      where: { OR: [{ type: "email", value: "jane@example.com" }] },
       select: { customerId: true, type: true, value: true },
     });
   });

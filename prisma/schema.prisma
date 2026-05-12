@@ -16,34 +16,61 @@ model Customer {
   mergedCustomers    Customer[]       @relation("CustomerMerge")
   signals            IdentitySignal[] @relation("CustomerSignals")
   events             Event[]          @relation("CustomerEvents")
-  mergedSignals      IdentitySignal[] @relation("SignalMerge")
-  mergedEvents       Event[]          @relation("EventMerge")
+  mergeWins          MergeLog[]       @relation("MergeWinner")
+  mergeLosses        MergeLog[]       @relation("MergeLoser")
 }
 
 model IdentitySignal {
-  id                 String    @id @default(cuid())
-  type               String    // e.g. "email", "phone", "device_id", "shopify_customer_id"
-  value              String
-  customerId         String
-  customer           Customer  @relation("CustomerSignals", fields: [customerId], references: [id])
-  mergedInto         String?
-  mergedIntoCustomer Customer? @relation("SignalMerge", fields: [mergedInto], references: [id])
-  createdAt          DateTime  @default(now())
+  id         String               @id @default(cuid())
+  type       String               // e.g. "email", "phone", "device_id", "shopify_customer_id"
+  value      String
+  customerId String
+  customer   Customer             @relation("CustomerSignals", fields: [customerId], references: [id])
+  createdAt  DateTime             @default(now())
+  mergeLogs  MergeIdentitySignal[]
 
   @@unique([type, value])
   @@index([value])
 }
 
 model Event {
-  id                 String    @id @default(cuid())
-  source             String    // "shopify" | "mindbody"
-  type               String    // "order.created" | "booking.created"
-  externalId         String    @unique
-  payload            String    // raw JSON
-  customerId         String
-  customer           Customer  @relation("CustomerEvents", fields: [customerId], references: [id])
-  mergedInto         String?
-  mergedIntoCustomer Customer? @relation("EventMerge", fields: [mergedInto], references: [id])
-  occurredAt         DateTime
-  createdAt          DateTime  @default(now())
+  id         String      @id @default(cuid())
+  source     String      // "shopify" | "mindbody"
+  type       String      // "order.created" | "booking.created"
+  externalId String      @unique
+  payload    String      // raw JSON
+  customerId String
+  customer   Customer    @relation("CustomerEvents", fields: [customerId], references: [id])
+  occurredAt DateTime
+  createdAt  DateTime    @default(now())
+  mergeLogs  MergeEvent[]
+}
+
+model MergeLog {
+  id            String               @id @default(cuid())
+  winnerId      String
+  winner        Customer             @relation("MergeWinner", fields: [winnerId], references: [id])
+  loserId       String
+  loser         Customer             @relation("MergeLoser", fields: [loserId], references: [id])
+  createdAt     DateTime             @default(now())
+  mergedSignals MergeIdentitySignal[]
+  mergedEvents  MergeEvent[]
+}
+
+model MergeIdentitySignal {
+  id               String         @id @default(cuid())
+  mergeLogId       String
+  mergeLog         MergeLog       @relation(fields: [mergeLogId], references: [id])
+  identitySignalId String
+  identitySignal   IdentitySignal @relation(fields: [identitySignalId], references: [id])
+  createdAt        DateTime       @default(now())
+}
+
+model MergeEvent {
+  id         String   @id @default(cuid())
+  mergeLogId String
+  mergeLog   MergeLog @relation(fields: [mergeLogId], references: [id])
+  eventId    String
+  event      Event    @relation(fields: [eventId], references: [id])
+  createdAt  DateTime @default(now())
 }
