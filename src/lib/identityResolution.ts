@@ -1,5 +1,5 @@
 import { WebhookPayload } from "@/types";
-import { getNormalizedInput, normalizeSignals } from "./signals";
+import { getNormalizedInput, normalizeSignals, createSignals } from "./signals";
 import { getCustomerIdsFromSignals } from "./identity/getCustomerIdsFromSignals";
 import { createCustomerProfile } from "./identity/createCustomerProfile";
 import { resolveProfileMergeConflict } from "./identity/resolveProfileMergeConflict";
@@ -20,10 +20,12 @@ export async function identityResolution(payload: WebhookPayload): Promise<strin
 
   if (matches.length === 0) {
     logger.debug({}, "identityResolution: no matches, creating new profile");
-    return prisma.$transaction(async (tx:TransactionClient) => {
+    return prisma.$transaction(async (tx: TransactionClient) => {
       const customerId = await createCustomerProfile(tx);
       logger.debug({ customerId }, "identityResolution: new customer profile created");
-      return customerId
+      await createSignals(tx, customerId, signals);
+      logger.debug({ customerId }, "identityResolution: signals written");
+      return customerId;
     });
   }
 

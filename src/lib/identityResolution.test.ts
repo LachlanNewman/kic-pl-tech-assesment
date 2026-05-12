@@ -14,6 +14,7 @@ vi.mock("@/lib/db", () => ({
 const mockFindMany = vi.mocked(prisma.identitySignal.findMany);
 const mockCustomerCreate = vi.mocked(prisma.customer.create);
 const mockTransaction = vi.mocked(prisma.$transaction);
+const mockCreateMany = vi.fn();
 
 const shopifyOrder: ShopifyWebhookPayload = {
   source: "shopify",
@@ -39,17 +40,30 @@ describe("identityResolution", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockTransaction.mockImplementation((fn: (tx: unknown) => unknown) =>
-      fn({ customer: { create: mockCustomerCreate } })
+      fn({
+        customer: { create: mockCustomerCreate },
+        identitySignal: { createMany: mockCreateMany },
+      })
     );
   });
 
-  it("2.1 - no signal matches creates a new customer and returns its ID", async () => {
+  it("2.1 - no signal matches creates a new customer, writes signals, and returns its ID", async () => {
     mockFindMany.mockResolvedValueOnce([]);
     mockCustomerCreate.mockResolvedValueOnce({ id: "new_cust_1", createdAt: new Date(), updatedAt: new Date() });
+    mockCreateMany.mockResolvedValueOnce({ count: 3 });
 
     const result = await identityResolution(shopifyOrder);
 
     expect(mockCustomerCreate).toHaveBeenCalledWith({ data: {} });
+    expect(mockCreateMany).toHaveBeenCalledWith({
+      data: [
+        { type: "email", value: "jane@example.com", customerId: "new_cust_1" },
+        { type: "phone", value: "+61411000000", customerId: "new_cust_1" },
+        { type: "device_id", value: "dev_abc", customerId: "new_cust_1" },
+        { type: "shopify_customer_id", value: "cust_shopify_1", customerId: "new_cust_1" },
+      ],
+      skipDuplicates: true,
+    });
     expect(result).toBe("new_cust_1");
   });
 
@@ -76,12 +90,14 @@ describe("identityResolution", () => {
     expect(result).toBe("cust_a");
   });
 
-  it("2.4 - all-null signals creates a new customer and returns its ID", async () => {
+  it("2.4 - all-null signals creates a new customer with no signals and returns its ID", async () => {
     mockFindMany.mockResolvedValueOnce([]);
     mockCustomerCreate.mockResolvedValueOnce({ id: "new_cust_2", createdAt: new Date(), updatedAt: new Date() });
+    mockCreateMany.mockResolvedValueOnce({ count: 0 });
 
     const result = await identityResolution(nullShopifyOrder);
 
+    expect(mockCreateMany).toHaveBeenCalledWith({ data: [], skipDuplicates: true });
     expect(result).toBe("new_cust_2");
   });
 });
