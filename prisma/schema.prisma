@@ -8,34 +8,42 @@ generator client {
 }
 
 model Customer {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  signals   IdentitySignal[]
-  events    Event[]
+  id                 String           @id @default(cuid())
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  mergedInto         String?
+  mergedIntoCustomer Customer?        @relation("CustomerMerge", fields: [mergedInto], references: [id])
+  mergedCustomers    Customer[]       @relation("CustomerMerge")
+  signals            IdentitySignal[] @relation("CustomerSignals")
+  events             Event[]          @relation("CustomerEvents")
+  mergedSignals      IdentitySignal[] @relation("SignalMerge")
+  mergedEvents       Event[]          @relation("EventMerge")
 }
 
 model IdentitySignal {
-  id         String   @id @default(cuid())
-  type       String   // e.g. "email", "phone", "device_id", "shopify_customer_id"
-  value      String
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
-  mergedInto String?  // winning customer ID; set on signals whose customer was merged into the winner
-  createdAt  DateTime @default(now())
+  id                 String    @id @default(cuid())
+  type               String    // e.g. "email", "phone", "device_id", "shopify_customer_id"
+  value              String
+  customerId         String
+  customer           Customer  @relation("CustomerSignals", fields: [customerId], references: [id])
+  mergedInto         String?
+  mergedIntoCustomer Customer? @relation("SignalMerge", fields: [mergedInto], references: [id])
+  createdAt          DateTime  @default(now())
 
   @@unique([type, value])
   @@index([value])
 }
 
 model Event {
-  id         String   @id @default(cuid())
-  source     String   // "shopify" | "mindbody"
-  type       String   // "order.created" | "booking.created"
-  externalId String   @unique
-  payload    String   // raw JSON
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
-  occurredAt DateTime
-  createdAt  DateTime @default(now())
+  id                 String    @id @default(cuid())
+  source             String    // "shopify" | "mindbody"
+  type               String    // "order.created" | "booking.created"
+  externalId         String    @unique
+  payload            String    // raw JSON
+  customerId         String
+  customer           Customer  @relation("CustomerEvents", fields: [customerId], references: [id])
+  mergedInto         String?
+  mergedIntoCustomer Customer? @relation("EventMerge", fields: [mergedInto], references: [id])
+  occurredAt         DateTime
+  createdAt          DateTime  @default(now())
 }

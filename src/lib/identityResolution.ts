@@ -45,5 +45,22 @@ export async function identityResolution(payload: WebhookPayload): Promise<strin
   }
 
   logger.debug({}, "identityResolution: multiple matches, resolving merge conflict");
-  return resolveProfileMergeConflict(matches);
+  const { winner, losers } = resolveProfileMergeConflict(matches);
+  logger.debug({ winner, losers }, "identityResolution: merge resolved");
+  return prisma.$transaction(async (tx: TransactionClient) => {
+    await tx.identitySignal.updateMany({
+      where: { customerId: { in: losers } },
+      data: { mergedInto: winner },
+    });
+    await tx.event.updateMany({
+      where: { customerId: { in: losers } },
+      data: { mergedInto: winner },
+    });
+    await tx.customer.updateMany({
+      where: { id: { in: losers } },
+      data: { mergedInto: winner },
+    });
+    logger.debug({ winner, losers }, "identityResolution: loser records marked with mergedInto");
+    return winner;
+  });
 }

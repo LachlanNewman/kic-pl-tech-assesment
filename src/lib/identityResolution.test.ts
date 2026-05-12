@@ -15,7 +15,9 @@ const mockFindMany = vi.mocked(prisma.identitySignal.findMany);
 const mockCustomerCreate = vi.mocked(prisma.customer.create);
 const mockTransaction = vi.mocked(prisma.$transaction);
 const mockCreateMany = vi.fn();
-const mockUpdateMany = vi.fn();
+const mockSignalUpdateMany = vi.fn();
+const mockEventUpdateMany = vi.fn();
+const mockCustomerUpdateMany = vi.fn();
 const mockEventCreate = vi.fn();
 
 const shopifyOrder: ShopifyWebhookPayload = {
@@ -46,9 +48,9 @@ describe("identityResolution", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockTransaction.mockImplementation((fn: any) =>
       fn({
-        customer: { create: mockCustomerCreate },
-        identitySignal: { createMany: mockCreateMany, updateMany: mockUpdateMany },
-        event: { create: mockEventCreate },
+        customer: { create: mockCustomerCreate, updateMany: mockCustomerUpdateMany },
+        identitySignal: { createMany: mockCreateMany, updateMany: mockSignalUpdateMany },
+        event: { create: mockEventCreate, updateMany: mockEventUpdateMany },
       })
     );
   });
@@ -116,19 +118,26 @@ describe("identityResolution", () => {
     expect(result).toBe("cust_existing");
   });
 
-  it("2.3 - multiple matches marks loser signals with mergedInto, and returns the winner ID", async () => {
+  it("2.3 - multiple matches marks all loser records with mergedInto, and returns the winner ID", async () => {
     mockFindMany.mockResolvedValueOnce([
       { customerId: "cust_a", type: "email", value: "jane@example.com" },
       { customerId: "cust_b", type: "phone", value: "+61411000000" },
     ] as Awaited<ReturnType<typeof mockFindMany>>);
-    mockUpdateMany.mockResolvedValueOnce({ count: 1 });
 
     const result = await identityResolution(shopifyOrder);
 
     expect(mockCustomerCreate).not.toHaveBeenCalled();
     expect(mockEventCreate).not.toHaveBeenCalled();
-    expect(mockUpdateMany).toHaveBeenCalledWith({
+    expect(mockSignalUpdateMany).toHaveBeenCalledWith({
       where: { customerId: { in: ["cust_b"] } },
+      data: { mergedInto: "cust_a" },
+    });
+    expect(mockEventUpdateMany).toHaveBeenCalledWith({
+      where: { customerId: { in: ["cust_b"] } },
+      data: { mergedInto: "cust_a" },
+    });
+    expect(mockCustomerUpdateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["cust_b"] } },
       data: { mergedInto: "cust_a" },
     });
     expect(result).toBe("cust_a");
