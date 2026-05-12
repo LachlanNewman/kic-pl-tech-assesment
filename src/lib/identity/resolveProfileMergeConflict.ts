@@ -9,11 +9,9 @@ export type MergeResolution = {
 export function resolveProfileMergeConflict(matches: CustomerSignalMatch[]): MergeResolution {
   logger.info("resolveProfileMergeConflict: running");
   logger.debug({ matchCount: matches.length, customerIds: matches.map((m) => m.customerId) }, "resolveProfileMergeConflict: params");
-  // TODO: this pick-first merge strategy is a placeholder and needs proper design.
-  // A real strategy should consider profile age, signal count, or most recent activity.
-  const [first, ...rest] = matches;
-  const winner = first.customerId;
-  const losers = rest.map((m) => m.customerId);
+  const sorted = [...matches].sort((a, b) => b.matchedSignals.length - a.matchedSignals.length);
+  const winner = sorted[0].customerId;
+  const losers = sorted.slice(1).map((m) => m.customerId);
   logger.debug({ winner, losers }, "resolveProfileMergeConflict: resolved");
   return { winner, losers };
 }
