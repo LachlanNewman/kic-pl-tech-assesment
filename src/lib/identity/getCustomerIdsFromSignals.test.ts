@@ -1,6 +1,6 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { prisma } from "@/lib/db";
-import { getCustomerIdsFromSignals } from "./identity";
+import { getCustomerIdsFromSignals } from "./index";
 import type { Signal } from "@/types";
 
 vi.mock("@/lib/db", () => ({
@@ -18,7 +18,7 @@ describe("getCustomerIdsFromSignals", () => {
     vi.clearAllMocks();
   });
 
-  it("3.1 - single signal matching one customer returns one match with that signal", async () => {
+  it("single signal matching one customer returns one match with that signal", async () => {
     const signal: Signal = { type: "email", value: "jane@example.com" };
     mockFindMany.mockResolvedValueOnce([
       { customerId: "cust_1", type: "email", value: "jane@example.com" },
@@ -31,7 +31,7 @@ describe("getCustomerIdsFromSignals", () => {
     expect(result[0].matchedSignals).toContainEqual(signal);
   });
 
-  it("3.2 - multiple signals matching the same customer returns one match with all matched signals", async () => {
+  it("multiple signals matching the same customer returns one match with all matched signals", async () => {
     const signals: Signal[] = [
       { type: "email", value: "jane@example.com" },
       { type: "phone", value: "+61411000000" },
@@ -50,7 +50,7 @@ describe("getCustomerIdsFromSignals", () => {
     expect(result[0].matchedSignals).toContainEqual({ type: "phone", value: "+61411000000" });
   });
 
-  it("3.3 - signals matching multiple distinct customers returns one match per customer with correct signals", async () => {
+  it("signals matching multiple distinct customers returns one match per customer with correct signals", async () => {
     const signals: Signal[] = [
       { type: "email", value: "alice@example.com" },
       { type: "email", value: "bob@example.com" },
@@ -71,7 +71,7 @@ describe("getCustomerIdsFromSignals", () => {
     expect(bob?.matchedSignals).not.toContainEqual({ type: "email", value: "alice@example.com" });
   });
 
-  it("3.4 - signals with no matching records returns empty array", async () => {
+  it("signals with no matching records returns empty array", async () => {
     mockFindMany.mockResolvedValueOnce([] as Awaited<ReturnType<typeof mockFindMany>>);
 
     const result = await getCustomerIdsFromSignals([{ type: "email", value: "unknown@example.com" }]);
@@ -79,7 +79,7 @@ describe("getCustomerIdsFromSignals", () => {
     expect(result).toEqual([]);
   });
 
-  it("3.5 - empty signal array returns empty array without querying the database", async () => {
+  it("empty signal array returns empty array without querying the database", async () => {
     const result = await getCustomerIdsFromSignals([]);
 
     expect(result).toEqual([]);

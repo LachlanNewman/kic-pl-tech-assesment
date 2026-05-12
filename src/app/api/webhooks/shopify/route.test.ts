@@ -1,6 +1,17 @@
-import { describe, it, expect } from "vitest";
+import { vi, describe, it, expect } from "vitest";
 import { NextRequest } from "next/server";
 import { POST } from "./route";
+
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    identitySignal: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    customer: {
+      create: vi.fn().mockResolvedValue({ id: "new_cust_test", createdAt: new Date(), updatedAt: new Date() }),
+    },
+  },
+}));
 
 function makeRequest(body: unknown): NextRequest {
   return new NextRequest("http://localhost/api/webhooks/shopify", {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ShopifyOrderSchema } from "@/types";
 import { normalizeSignals } from "@/lib/signals";
+import { getCustomerIdsFromSignals, resolveCustomerIdentity } from "@/lib/identity";
 import logger from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
@@ -27,6 +28,9 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  logger.debug({ orderId: result.data.id, signalCount: signals.length }, "POST /api/webhooks/shopify: processed");
+  const customerSignalMatches = await getCustomerIdsFromSignals(signals);
+  const customerId = await resolveCustomerIdentity(customerSignalMatches);
+
+  logger.debug({ orderId: result.data.id, signalCount: signals.length, customerId }, "POST /api/webhooks/shopify: processed");
   return NextResponse.json({ received: true });
 }

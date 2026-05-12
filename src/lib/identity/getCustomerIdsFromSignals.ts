@@ -1,6 +1,6 @@
-import { Signal, CustomerSignalMatch } from "@/types";
-import { prisma } from "./db";
-import logger from "./logger";
+import { CustomerSignalMatch, Signal } from "@/types";
+import logger from "../logger";
+import { prisma } from "../db";
 
 export async function getCustomerIdsFromSignals(signals: Signal[]): Promise<CustomerSignalMatch[]> {
   logger.info("getCustomerIdsFromSignals: running");
