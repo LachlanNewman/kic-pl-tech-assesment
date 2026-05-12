@@ -72,7 +72,7 @@ describe("identityResolution", () => {
 
   it("2.1 - no signal matches creates a new customer, writes signals, writes event, and returns its ID", async () => {
     mockFindMany.mockResolvedValueOnce([]);
-    mockCustomerCreate.mockResolvedValueOnce({ id: "new_cust_1", createdAt: new Date(), updatedAt: new Date() });
+    mockCustomerCreate.mockResolvedValueOnce({ id: "new_cust_1", createdAt: new Date(), updatedAt: new Date(), mergedInto: null });
     mockCreateMany.mockResolvedValueOnce({ count: 4 });
     mockEventCreate.mockResolvedValueOnce({ id: "evt_1" });
 
@@ -178,7 +178,7 @@ describe("identityResolution", () => {
 
   it("2.4 - all-null signals creates a new customer with no signals, writes event, and returns its ID", async () => {
     mockFindMany.mockResolvedValueOnce([]);
-    mockCustomerCreate.mockResolvedValueOnce({ id: "new_cust_2", createdAt: new Date(), updatedAt: new Date() });
+    mockCustomerCreate.mockResolvedValueOnce({ id: "new_cust_2", createdAt: new Date(), updatedAt: new Date(), mergedInto: null });
     mockCreateMany.mockResolvedValueOnce({ count: 0 });
     mockEventCreate.mockResolvedValueOnce({ id: "evt_2" });
 
