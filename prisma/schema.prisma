@@ -21,6 +21,7 @@ model IdentitySignal {
   value      String
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id])
+  mergedInto String?  // winning customer ID; set on signals whose customer was merged into the winner
   createdAt  DateTime @default(now())
 
   @@unique([type, value])

@@ -15,6 +15,7 @@ const mockFindMany = vi.mocked(prisma.identitySignal.findMany);
 const mockCustomerCreate = vi.mocked(prisma.customer.create);
 const mockTransaction = vi.mocked(prisma.$transaction);
 const mockCreateMany = vi.fn();
+const mockUpdateMany = vi.fn();
 const mockEventCreate = vi.fn();
 
 const shopifyOrder: ShopifyWebhookPayload = {
@@ -46,7 +47,7 @@ describe("identityResolution", () => {
     mockTransaction.mockImplementation((fn: any) =>
       fn({
         customer: { create: mockCustomerCreate },
-        identitySignal: { createMany: mockCreateMany },
+        identitySignal: { createMany: mockCreateMany, updateMany: mockUpdateMany },
         event: { create: mockEventCreate },
       })
     );
@@ -115,16 +116,21 @@ describe("identityResolution", () => {
     expect(result).toBe("cust_existing");
   });
 
-  it("2.3 - multiple matches returns the first matched customer ID", async () => {
+  it("2.3 - multiple matches marks loser signals with mergedInto, and returns the winner ID", async () => {
     mockFindMany.mockResolvedValueOnce([
       { customerId: "cust_a", type: "email", value: "jane@example.com" },
       { customerId: "cust_b", type: "phone", value: "+61411000000" },
     ] as Awaited<ReturnType<typeof mockFindMany>>);
+    mockUpdateMany.mockResolvedValueOnce({ count: 1 });
 
     const result = await identityResolution(shopifyOrder);
 
     expect(mockCustomerCreate).not.toHaveBeenCalled();
     expect(mockEventCreate).not.toHaveBeenCalled();
+    expect(mockUpdateMany).toHaveBeenCalledWith({
+      where: { customerId: { in: ["cust_b"] } },
+      data: { mergedInto: "cust_a" },
+    });
     expect(result).toBe("cust_a");
   });
 
