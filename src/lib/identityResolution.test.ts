@@ -81,10 +81,10 @@ describe("identityResolution", () => {
     expect(mockCustomerCreate).toHaveBeenCalledWith({ data: {} });
     expect(mockCreateMany).toHaveBeenCalledWith({
       data: [
-        { type: "email", value: "jane@example.com", customerId: "new_cust_1" },
-        { type: "phone", value: "+61411000000", customerId: "new_cust_1" },
-        { type: "device_id", value: "dev_abc", customerId: "new_cust_1" },
-        { type: "shopify_customer_id", value: "cust_shopify_1", customerId: "new_cust_1" },
+        { type: "email", value: "jane@example.com", confidence: 3, customerId: "new_cust_1" },
+        { type: "phone", value: "+61411000000", confidence: 3, customerId: "new_cust_1" },
+        { type: "device_id", value: "dev_abc", confidence: 2, customerId: "new_cust_1" },
+        { type: "shopify_customer_id", value: "cust_shopify_1", confidence: 3, customerId: "new_cust_1" },
       ],
     });
     expect(mockEventCreate).toHaveBeenCalledWith({
@@ -112,10 +112,10 @@ describe("identityResolution", () => {
     expect(mockCustomerCreate).not.toHaveBeenCalled();
     expect(mockCreateMany).toHaveBeenCalledWith({
       data: [
-        { type: "email", value: "jane@example.com", customerId: "cust_existing" },
-        { type: "phone", value: "+61411000000", customerId: "cust_existing" },
-        { type: "device_id", value: "dev_abc", customerId: "cust_existing" },
-        { type: "shopify_customer_id", value: "cust_shopify_1", customerId: "cust_existing" },
+        { type: "email", value: "jane@example.com", confidence: 3, customerId: "cust_existing" },
+        { type: "phone", value: "+61411000000", confidence: 3, customerId: "cust_existing" },
+        { type: "device_id", value: "dev_abc", confidence: 2, customerId: "cust_existing" },
+        { type: "shopify_customer_id", value: "cust_shopify_1", confidence: 3, customerId: "cust_existing" },
       ],
     });
     expect(mockEventCreate).toHaveBeenCalledWith({

@@ -21,7 +21,7 @@ describe("getCustomerIdsFromSignals", () => {
   it("single signal matching one customer returns one match with that signal", async () => {
     const signal: Signal = { type: "email", value: "jane@example.com" };
     mockFindMany.mockResolvedValueOnce([
-      { customerId: "cust_1", type: "email", value: "jane@example.com" },
+      { customerId: "cust_1", type: "email", value: "jane@example.com", confidence: 3 },
     ] as Awaited<ReturnType<typeof mockFindMany>>);
 
     const result = await getCustomerIdsFromSignals([signal]);
@@ -31,23 +31,22 @@ describe("getCustomerIdsFromSignals", () => {
     expect(result[0].matchedSignals).toContainEqual(signal);
   });
 
-  it("multiple signals matching the same customer returns one match with all matched signals", async () => {
+  it("multiple signals matching the same customer returns one match with only the highest-confidence signal", async () => {
     const signals: Signal[] = [
       { type: "email", value: "jane@example.com" },
-      { type: "phone", value: "+61411000000" },
+      { type: "device_id", value: "dev_abc" },
     ];
     mockFindMany.mockResolvedValueOnce([
-      { customerId: "cust_1", type: "email", value: "jane@example.com" },
-      { customerId: "cust_1", type: "phone", value: "+61411000000" },
+      { customerId: "cust_1", type: "device_id", value: "dev_abc", confidence: 2 },
+      { customerId: "cust_1", type: "email", value: "jane@example.com", confidence: 3 },
     ] as Awaited<ReturnType<typeof mockFindMany>>);
 
     const result = await getCustomerIdsFromSignals(signals);
 
     expect(result).toHaveLength(1);
     expect(result[0].customerId).toBe("cust_1");
-    expect(result[0].matchedSignals).toHaveLength(2);
+    expect(result[0].matchedSignals).toHaveLength(1);
     expect(result[0].matchedSignals).toContainEqual({ type: "email", value: "jane@example.com" });
-    expect(result[0].matchedSignals).toContainEqual({ type: "phone", value: "+61411000000" });
   });
 
   it("signals matching multiple distinct customers returns one match per customer with correct signals", async () => {
@@ -56,8 +55,8 @@ describe("getCustomerIdsFromSignals", () => {
       { type: "email", value: "bob@example.com" },
     ];
     mockFindMany.mockResolvedValueOnce([
-      { customerId: "cust_a", type: "email", value: "alice@example.com" },
-      { customerId: "cust_b", type: "email", value: "bob@example.com" },
+      { customerId: "cust_a", type: "email", value: "alice@example.com", confidence: 3 },
+      { customerId: "cust_b", type: "email", value: "bob@example.com", confidence: 3 },
     ] as Awaited<ReturnType<typeof mockFindMany>>);
 
     const result = await getCustomerIdsFromSignals(signals);
@@ -79,7 +78,7 @@ describe("getCustomerIdsFromSignals", () => {
     expect(result).toEqual([]);
   });
 
-  it("queries signals by type and value only", async () => {
+  it("queries signals by type, value, and confidence", async () => {
     const signal: Signal = { type: "email", value: "jane@example.com" };
     mockFindMany.mockResolvedValueOnce([]);
 
@@ -87,7 +86,7 @@ describe("getCustomerIdsFromSignals", () => {
 
     expect(mockFindMany).toHaveBeenCalledWith({
       where: { OR: [{ type: "email", value: "jane@example.com" }] },
-      select: { customerId: true, type: true, value: true },
+      select: { customerId: true, type: true, value: true, confidence: true },
     });
   });
 

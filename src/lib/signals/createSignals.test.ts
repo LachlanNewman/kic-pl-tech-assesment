@@ -25,8 +25,8 @@ describe("createSignals", () => {
 
     expect(mockCreateMany).toHaveBeenCalledWith({
       data: [
-        { type: "email", value: "a@b.com", customerId: "cust_1" },
-        { type: "phone", value: "0400000000", customerId: "cust_1" },
+        { type: "email", value: "a@b.com", confidence: 3, customerId: "cust_1" },
+        { type: "phone", value: "0400000000", confidence: 3, customerId: "cust_1" },
       ],
     });
   });

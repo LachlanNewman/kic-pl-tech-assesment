@@ -13,23 +13,21 @@ export async function getCustomerIdsFromSignals(signals: Signal[]): Promise<Cust
 
   const rows = await prisma.identitySignal.findMany({
     where: { OR: signals.map((s) => ({ type: s.type, value: s.value })) },
-    select: { customerId: true, type: true, value: true },
+    select: { customerId: true, type: true, value: true, confidence: true },
   });
 
   logger.debug({ rowCount: rows.length }, "getCustomerIdsFromSignals: rows fetched");
 
-  const grouped = new Map<string, Signal[]>();
+  const bestByCustomer = new Map<string, { type: string; value: string; confidence: number }>();
   for (const row of rows) {
-    const existing = grouped.get(row.customerId);
-    if (existing) {
-      existing.push({ type: row.type, value: row.value });
-    } else {
-      grouped.set(row.customerId, [{ type: row.type, value: row.value }]);
+    const existing = bestByCustomer.get(row.customerId);
+    if (!existing || row.confidence > existing.confidence) {
+      bestByCustomer.set(row.customerId, { type: row.type, value: row.value, confidence: row.confidence });
     }
   }
 
-  const result: CustomerSignalMatch[] = Array.from(grouped.entries()).map(
-    ([customerId, matchedSignals]) => ({ customerId, matchedSignals })
+  const result: CustomerSignalMatch[] = Array.from(bestByCustomer.entries()).map(
+    ([customerId, best]) => ({ customerId, matchedSignals: [{ type: best.type, value: best.value }] })
   );
 
   logger.debug({ matchCount: result.length }, "getCustomerIdsFromSignals: returning matches");
