@@ -86,15 +86,16 @@ A second Shopify order from the same device as the first order, but placed as a 
 
 These are the signals available across the two systems in this exercise. Each signal has a type and a resolution confidence level.
 
-| Signal | Field in payload | Type | Confidence |
-|---|---|---|---|
-| `email` | `email` / `client_email` | Deterministic | High — but one person may have multiple emails |
-| `phone` | `phone` | Deterministic | High — normalise to E.164 |
-| `device_id` | `device_id` | Probabilistic | Medium — shared devices or reinstalls can cause false links |
-| `shopify_customer_id` | `shopify_customer_id` | Deterministic | High — stable platform ID |
-| `mindbody_client_id` | `mindbody_client_id` | Deterministic | High — stable platform ID |
+| Signal                | Field in payload         | Type          | Confidence                                                  |
+| --------------------- | ------------------------ | ------------- | ----------------------------------------------------------- |
+| `email`               | `email` / `client_email` | Deterministic | High — but one person may have multiple emails              |
+| `phone`               | `phone`                  | Deterministic | High — normalise to E.164                                   |
+| `device_id`           | `device_id`              | Probabilistic | Medium — shared devices or reinstalls can cause false links |
+| `shopify_customer_id` | `shopify_customer_id`    | Deterministic | High — stable platform ID                                   |
+| `mindbody_client_id`  | `mindbody_client_id`     | Deterministic | High — stable platform ID                                   |
 
 Resolution rules:
+
 - Any two events that share a deterministic signal value resolve to the same canonical customer.
 - A probabilistic signal (e.g. `device_id`) alone is sufficient for resolution in this exercise, but your data model should make the confidence level and triggering signal queryable.
 - When a new event resolves to an existing profile, all signals from the new event are added to that profile's signal set — which may trigger further cascading merges.
@@ -107,4 +108,4 @@ Resolution rules:
 - The same real customer appears with different emails across Shopify and Mindbody — phone is the linking signal
 - A guest checkout carries no email or phone — device ID is the only available signal
 - A customer may have events from only one source and no overlapping signals with any other profile — they exist as an unlinked profile until a future event connects them
-- A single incoming event may carry signals that each match a *different* existing profile — for example, the email resolves to profile A but the phone resolves to profile B. How do you handle the conflict? Do you merge the two profiles? Which signal takes precedence? What do you record about why the merge happened so it can be reviewed or reversed?
+- A single incoming event may carry signals that each match a _different_ existing profile — for example, the email resolves to profile A but the phone resolves to profile B. How do you handle the conflict? Do you merge the two profiles? Which signal takes precedence? What do you record about why the merge happened so it can be reviewed or reversed?

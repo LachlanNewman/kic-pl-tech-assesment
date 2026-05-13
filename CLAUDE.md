@@ -22,10 +22,10 @@ This repo is a technical assessment for a Platform Lead role at KIC. It uses Nex
 Every function must follow this pattern:
 
 ```ts
-logger.info("functionName: running");
-logger.debug({ param1, param2 }, "functionName: params");
+logger.info('functionName: running');
+logger.debug({ param1, param2 }, 'functionName: params');
 // ... use logger.debug() for all subsequent statements within the function
-logger.debug({ result }, "functionName: some detail");
+logger.debug({ result }, 'functionName: some detail');
 ```
 
 - **`info`** — one statement at the top of every function: `"<functionName>: running"`

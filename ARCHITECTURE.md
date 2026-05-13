@@ -4,7 +4,7 @@ Assumptions -> should scale to ~1million users.
 
 ## 1. Problem Statement
 
-*Describe the fragmented customer identity problem across KIC's systems and why it matters. Why is a shared email or phone number insufficient as a single canonical key? What are the business consequences of unresolved identity — in CRM, in marketing attribution, in the studio experience?*
+_Describe the fragmented customer identity problem across KIC's systems and why it matters. Why is a shared email or phone number insufficient as a single canonical key? What are the business consequences of unresolved identity — in CRM, in marketing attribution, in the studio experience?_
 
 KIC operates across three systems — the KICApp, Shopify, and Mindbody — each of which captures a fragment of customer identity independently. The same real person can appear with different emails across platforms, no email at all in a guest checkout, and no shared key between any two systems. There is currently no layer that links these records together, which means the business cannot act on the complete relationship it has with a customer.
 
@@ -33,7 +33,7 @@ Because no signal is both universal and unambiguous, a single canonical key cann
 
 ## 2. Build vs Buy
 
-*Would you build this identity resolution layer, or buy a Customer Data Platform (CDP) — and why? What factors drive that call: cost, control, time-to-value, team capability, data residency, or something else? If you'd buy, which product and why; if you'd build, what does that imply about ongoing maintenance and ownership?*
+_Would you build this identity resolution layer, or buy a Customer Data Platform (CDP) — and why? What factors drive that call: cost, control, time-to-value, team capability, data residency, or something else? If you'd buy, which product and why; if you'd build, what does that imply about ongoing maintenance and ownership?_
 
 **Recommendation: do not build identity resolution from scratch — lean on a third-party service.**
 
@@ -67,7 +67,7 @@ The self-hosted open-source path is the recommended starting point. It removes t
 
 ## 3. Proposed Data Model
 
-*Define the unified customer profile and how it relates to identity signals and source events. A diagram or structured description is fine. Consider: what is the canonical record, how are signals stored as typed edges, and how do source events reference the profile rather than the signal?*
+_Define the unified customer profile and how it relates to identity signals and source events. A diagram or structured description is fine. Consider: what is the canonical record, how are signals stored as typed edges, and how do source events reference the profile rather than the signal?_
 
 The model has five entities: `Customer`, `IdentitySignal`, `Event`, `MergeLog`, and two junction tables (`MergeIdentitySignal`, `MergeEvent`). Merge provenance is tracked in a dedicated `MergeLog` record — rather than stamping `mergedInto` inline on signals and events — giving a complete, queryable audit trail of every merge decision without mutating the original signal or event rows.
 
@@ -176,7 +176,7 @@ MergeLog        ──< MergeEvent           (junction — events affected by th
 
 ## 4. Integration Points
 
-*For each of KICApp, Shopify, Mindbody — how does data flow into the central layer? What signals does each system provide, and what are the integration patterns (webhooks, polling, SDK instrumentation, server-side event forwarding)?*
+_For each of KICApp, Shopify, Mindbody — how does data flow into the central layer? What signals does each system provide, and what are the integration patterns (webhooks, polling, SDK instrumentation, server-side event forwarding)?_
 
 Both Shopify and Mindbody push events to KIC via webhooks. KIC has no control over the retry behaviour or delivery guarantees of either system — if the receiving endpoint is slow or unavailable, events may be retried, delivered out of order, or dropped entirely. This makes the ingestion layer a critical failure point.
 
@@ -237,7 +237,7 @@ For the purpose of this assessment, the queue layer is omitted. The API route ha
 
 ## 5. Identity Resolution
 
-*How does the system resolve events to canonical profiles when no single shared key exists?*
+_How does the system resolve events to canonical profiles when no single shared key exists?_
 
 ### Resolution algorithm
 
@@ -255,24 +255,24 @@ When an event arrives, resolution runs in five sequential steps:
 
 ### Match outcomes
 
-| Outcome | Condition | Action |
-|---|---|---|
-| No profile found | Zero customers above threshold | Create a new `Customer`, write all signals, write the event |
-| Single match | Exactly one customer above threshold | Attach any new signals to that customer, write the event |
-| Collision | Two or more customers above threshold | Merge losers into winner, then write the event to the winner |
+| Outcome          | Condition                             | Action                                                       |
+| ---------------- | ------------------------------------- | ------------------------------------------------------------ |
+| No profile found | Zero customers above threshold        | Create a new `Customer`, write all signals, write the event  |
+| Single match     | Exactly one customer above threshold  | Attach any new signals to that customer, write the event     |
+| Collision        | Two or more customers above threshold | Merge losers into winner, then write the event to the winner |
 
 ### Deterministic vs probabilistic signals
 
 Signal confidence is declared in `signalConfig.ts` and stored on each `IdentitySignal` row at write time:
 
-| Signal type | Confidence | Rationale |
-|---|---|---|
-| `email` | 3 — HIGH | Stable, explicit identifier; almost always intentional |
-| `phone` | 3 — HIGH | E.164-normalised; one person, one number in practice |
-| `shopify_customer_id` | 3 — HIGH | Opaque platform ID; one account, one value |
-| `mindbody_client_id` | 3 — HIGH | Same — stable within Mindbody's system |
-| `device_id` | 2 — MEDIUM | Probabilistic; a studio iPad or a reinstall can collide |
-| Unknown types | 1 — LOW | Safe fallback for signals not yet classified |
+| Signal type           | Confidence | Rationale                                               |
+| --------------------- | ---------- | ------------------------------------------------------- |
+| `email`               | 3 — HIGH   | Stable, explicit identifier; almost always intentional  |
+| `phone`               | 3 — HIGH   | E.164-normalised; one person, one number in practice    |
+| `shopify_customer_id` | 3 — HIGH   | Opaque platform ID; one account, one value              |
+| `mindbody_client_id`  | 3 — HIGH   | Same — stable within Mindbody's system                  |
+| `device_id`           | 2 — MEDIUM | Probabilistic; a studio iPad or a reinstall can collide |
+| Unknown types         | 1 — LOW    | Safe fallback for signals not yet classified            |
 
 The merge threshold is set at **3**, which means a single HIGH signal is sufficient to claim a profile. In a production system this threshold should be configurable and not hard coded. A single MEDIUM or LOW signal is not — a customer matched only on `device_id` (score 2) is treated as insufficient evidence and a new profile is created. Two MEDIUM signals from the same customer (score 4) would exceed the threshold, but that combination does not currently arise for a single-source event.
 
@@ -321,17 +321,17 @@ The `triggeringSignalId` column is present in the schema but currently populated
 
 The `SIGNAL_TYPE_CONFIDENCE` map is an open string registry — any signal type can be added without a schema migration. The current implementation handles the signals present in Shopify and Mindbody webhooks. The broader KIC landscape requires the following classification:
 
-| Signal | Stability | Recommended confidence | Notes |
-|---|---|---|---|
-| `email` | Stable | 3 — HIGH | Already implemented |
-| `phone` | Stable | 3 — HIGH | Already implemented |
-| `shopify_customer_id` | Stable | 3 — HIGH | Already implemented |
-| `mindbody_client_id` | Stable | 3 — HIGH | Already implemented |
-| `app_user_id` | Stable | 3 — HIGH | Add when KICApp pipeline is in scope |
-| `device_id` | Probabilistic | 2 — MEDIUM | Already implemented; studio iPad risk noted |
-| `browser_fingerprint` | Probabilistic | 2 — MEDIUM | Add to `signalConfig.ts`; same shared-device caveat |
-| `fbclid` | Short-lived | 1 — LOW | Facebook click IDs expire and are not stable across sessions |
-| `gclid` | Short-lived | 1 — LOW | Google click IDs same; useful for attribution lookups but not identity anchors |
+| Signal                | Stability     | Recommended confidence | Notes                                                                          |
+| --------------------- | ------------- | ---------------------- | ------------------------------------------------------------------------------ |
+| `email`               | Stable        | 3 — HIGH               | Already implemented                                                            |
+| `phone`               | Stable        | 3 — HIGH               | Already implemented                                                            |
+| `shopify_customer_id` | Stable        | 3 — HIGH               | Already implemented                                                            |
+| `mindbody_client_id`  | Stable        | 3 — HIGH               | Already implemented                                                            |
+| `app_user_id`         | Stable        | 3 — HIGH               | Add when KICApp pipeline is in scope                                           |
+| `device_id`           | Probabilistic | 2 — MEDIUM             | Already implemented; studio iPad risk noted                                    |
+| `browser_fingerprint` | Probabilistic | 2 — MEDIUM             | Add to `signalConfig.ts`; same shared-device caveat                            |
+| `fbclid`              | Short-lived   | 1 — LOW                | Facebook click IDs expire and are not stable across sessions                   |
+| `gclid`               | Short-lived   | 1 — LOW                | Google click IDs same; useful for attribution lookups but not identity anchors |
 
 Short-lived signals (`fbclid`, `gclid`) are stored as signals for attribution purposes — they can link a paid click to a subsequent purchase — but their LOW confidence means they never independently trigger a merge. They contribute to a cumulative score only when another signal already has the profile above threshold. This prevents a recycled or shared click ID from incorrectly linking two separate customers.
 
@@ -339,7 +339,7 @@ Short-lived signals (`fbclid`, `gclid`) are stored as signals for attribution pu
 
 ## 6. Failure Modes
 
-*Identify at least four failure scenarios and how the architecture mitigates each. Consider: duplicate webhooks, downstream outages, schema drift in source payloads, identity conflicts (two real people sharing a device), a bad merge that incorrectly unified two separate customers, and what happens when it goes out against a stale identity snapshot.*
+_Identify at least four failure scenarios and how the architecture mitigates each. Consider: duplicate webhooks, downstream outages, schema drift in source payloads, identity conflicts (two real people sharing a device), a bad merge that incorrectly unified two separate customers, and what happens when it goes out against a stale identity snapshot._
 
 ### 1. Duplicate webhook delivery
 
@@ -392,8 +392,8 @@ A secondary mitigation is a **manual merge review interface**. For cases where t
 A reversal procedure reads this log and executes the inverse operations in a transaction:
 
 1. Re-point each signal listed in `mergedSignals` back to the loser's `customerId`.
-3. Re-point each event listed in `mergedEvents` back to the loser's `customerId`.
-4. Clear `mergedInto` on the loser customer.
+2. Re-point each event listed in `mergedEvents` back to the loser's `customerId`.
+3. Clear `mergedInto` on the loser customer.
 
 Because the original signal and event rows were never deleted — only their `customerId` was updated — the reversal is lossless. No data needs to be reconstructed from backups.
 
@@ -401,7 +401,7 @@ Because the original signal and event rows were never deleted — only their `cu
 
 ## 7. Rollout Strategy
 
-*How would you introduce this without breaking existing integrations? Consider shadow mode, feature flags, phased cutover, and how you'd validate identity resolution accuracy before making it load-bearing for CRM or marketing sends.*
+_How would you introduce this without breaking existing integrations? Consider shadow mode, feature flags, phased cutover, and how you'd validate identity resolution accuracy before making it load-bearing for CRM or marketing sends._
 
 The rollout runs in four phases: shadow capture, internal validation, limited external rollout, and full cutover. No existing integrations are touched until phase 4.
 
@@ -457,9 +457,9 @@ At this point, the identity layer is the system of record. The S3 corpus from ph
 
 ## 8. "We Miss You" Campaign — Worked Example
 
-*Trace this specific use case end-to-end through your proposed architecture: Marketing wants to send a re-engagement email to members who have lapsed from studio bookings but remain active in the app, with a discount code valid in both Shopify and at the studio.*
+_Trace this specific use case end-to-end through your proposed architecture: Marketing wants to send a re-engagement email to members who have lapsed from studio bookings but remain active in the app, with a discount code valid in both Shopify and at the studio._
 
-*Walk through: how the system knows these are the same person (they may have different emails in Mindbody vs the app), how the lapse signal is detected, how the discount code is issued and made valid across both systems, and what happens if the identity resolution was wrong — the wrong person gets the email or the discount is redeemed by someone else.*
+_Walk through: how the system knows these are the same person (they may have different emails in Mindbody vs the app), how the lapse signal is detected, how the discount code is issued and made valid across both systems, and what happens if the identity resolution was wrong — the wrong person gets the email or the discount is redeemed by someone else._
 
 ### How the system knows they are the same person
 
@@ -506,6 +506,7 @@ Suppose Maya's `phone` signal was entered incorrectly and actually belongs to a 
 **Reversal**: Support triggers the merge reversal procedure (described in section 6, failure mode 5), which re-splits Maya and Sophie into separate `Customer` records and re-points their signals and events accordingly.
 
 **Discount invalidation**: As part of the reversal transaction, any discount codes issued against the merged profile are revoked:
+
 - The Shopify discount code is deactivated via the Admin API.
 - The Mindbody promotion is cancelled via the Mindbody API.
 
