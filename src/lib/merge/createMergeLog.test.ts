@@ -48,6 +48,8 @@ describe("createMergeLog", () => {
       data: {
         winnerId: "cust_a",
         loserId: "cust_b",
+        confidenceLevel: 3,
+        triggeringSignalId: "sig_a1",
         mergedSignals: { create: [{ identitySignalId: "sig_b1" }, { identitySignalId: "sig_b2" }] },
         mergedEvents: { create: [{ eventId: "evt_b1" }, { eventId: "evt_b2" }] },
       },
@@ -55,7 +57,7 @@ describe("createMergeLog", () => {
   });
 
   it("creates a merge log with empty signals and events when loser had none", async () => {
-    const winner: CustomerSignalMatch = { customerId: "cust_a", matchedSignals: [] };
+    const winner: CustomerSignalMatch = { customerId: "cust_a", matchedSignals: [makeSignal("sig_a1", "cust_a")] };
     const loser: CustomerSignalMatch = { customerId: "cust_b", matchedSignals: [] };
 
     mockCreate.mockResolvedValue({ id: "merge_2" });
@@ -66,6 +68,8 @@ describe("createMergeLog", () => {
       data: {
         winnerId: "cust_a",
         loserId: "cust_b",
+        confidenceLevel: 3,
+        triggeringSignalId: "sig_a1",
         mergedSignals: { create: [] },
         mergedEvents: { create: [] },
       },
@@ -76,7 +80,7 @@ describe("createMergeLog", () => {
     mockCreate.mockRejectedValue(new Error("db error"));
 
     await expect(
-      createMergeLog(tx, { customerId: "a", matchedSignals: [] }, { customerId: "b", matchedSignals: [] }, [])
+      createMergeLog(tx, { customerId: "a", matchedSignals: [makeSignal("sig_a1", "a")] }, { customerId: "b", matchedSignals: [] }, [])
     ).rejects.toThrow("db error");
   });
 });
