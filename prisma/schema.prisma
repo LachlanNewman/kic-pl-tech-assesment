@@ -29,8 +29,6 @@ model IdentitySignal {
   customer           Customer             @relation("CustomerSignals", fields: [customerId], references: [id])
   createdAt          DateTime             @default(now())
   mergeLogs          MergeIdentitySignal[]
-  triggeredMergeLogs MergeLog[]           @relation("TriggeringSignal")
-
   @@unique([type, value])
   @@index([value])
 }
@@ -55,8 +53,6 @@ model MergeLog {
   loserId            String
   loser              Customer             @relation("MergeLoser", fields: [loserId], references: [id])
   confidenceLevel    Int
-  triggeringSignalId String
-  triggeringSignal   IdentitySignal       @relation("TriggeringSignal", fields: [triggeringSignalId], references: [id])
   createdAt          DateTime             @default(now())
   mergedSignals      MergeIdentitySignal[]
   mergedEvents       MergeEvent[]
