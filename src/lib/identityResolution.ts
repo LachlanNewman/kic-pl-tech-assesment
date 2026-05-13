@@ -1,4 +1,4 @@
-import { WebhookPayload } from "@/types";
+import { CustomerSignalMatch, WebhookPayload } from "@/types";
 import { getNormalizedInput, normalizeSignals, createSignals } from "./signals";
 import { createEvent, findEventByExternalId } from "./events";
 import { createCustomerProfile } from "./identity/createCustomerProfile";
@@ -12,6 +12,12 @@ import { setCustomerAsMerged } from "./identity/setCustomerAsMerged";
 import { mergeSignal } from "./signals/mergeSignal";
 import { findEventsForCustomer } from "./events/findEventsForCustomer";
 import { createMergeLog } from "./merge/createMergeLog";
+
+const CONFIDENCE_THRESHOLD = 3;
+
+function getMatchesAboveThreshold(matches: CustomerSignalMatch[]): CustomerSignalMatch[] {
+    return matches.filter((m) => m.confidence >= CONFIDENCE_THRESHOLD);
+}
 
 export async function identityResolution(payload: WebhookPayload): Promise<string> {
   logger.info("identityResolution: running");
@@ -34,7 +40,10 @@ export async function identityResolution(payload: WebhookPayload): Promise<strin
   const groupedMatches = groupSignalsByCustomers(matches);
   logger.debug({ groupedMatchCount: groupedMatches.length }, "identityResolution: grouped matches");
 
-  if (groupedMatches.length === 0) {
+  const matchesAboveThreshold = getMatchesAboveThreshold(groupedMatches);
+  logger.debug({ matchesAboveThresholdCount: matchesAboveThreshold.length }, "identityResolution: matches above confidence threshold");
+
+  if (matchesAboveThreshold.length === 0) {
     logger.debug("identityResolution: no matches, creating new profile");
     return prisma.$transaction(async (tx: TransactionClient) => {
       const customerId = await createCustomerProfile(tx);
@@ -47,8 +56,8 @@ export async function identityResolution(payload: WebhookPayload): Promise<strin
     });
   }
 
-  if (groupedMatches.length === 1) {
-    const customerId = groupedMatches[0].customerId;
+  if (matchesAboveThreshold.length === 1) {
+    const customerId = matchesAboveThreshold[0].customerId;
     logger.debug({ customerId }, "identityResolution: single match found");
     return prisma.$transaction(async (tx: TransactionClient) => {
       await createSignals(tx, customerId, signals);
@@ -61,7 +70,7 @@ export async function identityResolution(payload: WebhookPayload): Promise<strin
 
   logger.debug("identityResolution: multiple matches, resolving merge conflict");
 
-  const { winner, losers } = resolveProfileMergeConflict(groupedMatches);
+  const { winner, losers } = resolveProfileMergeConflict(matchesAboveThreshold);
   logger.debug({ winner, losers }, "identityResolution: merge resolved");
 
   return prisma.$transaction(async (tx: TransactionClient) => {

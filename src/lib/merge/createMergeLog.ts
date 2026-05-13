@@ -8,13 +8,11 @@ export async function createMergeLog(
   loser: CustomerSignalMatch,
   loserEvents: Event[],
 ) {
-  const triggeringSignal = winner.matchedSignals[0];
   return tx.mergeLog.create({
     data: {
       winnerId: winner.customerId,
       loserId: loser.customerId,
-      confidenceLevel: triggeringSignal.confidence,
-      triggeringSignalId: triggeringSignal.id,
+      confidenceLevel: winner.confidence,
       mergedSignals: { create: loser.matchedSignals.map((s) => ({ identitySignalId: s.id })) },
       mergedEvents: { create: loserEvents.map((e: { id: string }) => ({ eventId: e.id })) },
     },

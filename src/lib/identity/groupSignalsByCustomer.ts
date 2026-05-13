@@ -12,10 +12,11 @@ export function groupSignalsByCustomers(rows: IdentitySignal[]): CustomerSignalM
     const index = customerSignalMap.get(row.customerId);
     if (index === undefined) {
       customerSignalMap.set(row.customerId, customerSignals.length);
-      customerSignals.push({ customerId: row.customerId, matchedSignals: [row] });
+      customerSignals.push({ customerId: row.customerId, matchedSignals: [row], confidence: 0  + row.confidence });
     }
     else{
       customerSignals[index].matchedSignals.push(row);
+      customerSignals[index].confidence += row.confidence;
     }
   }
 

@@ -3,11 +3,11 @@ import { resolveProfileMergeConflict } from "./resolveProfileMergeConflict";
 import type { CustomerSignalMatch } from "@/types";
 import type { IdentitySignal } from "@prisma/client";
 
-const makeSignal = (type: string, value: string): IdentitySignal => ({
+const makeSignal = (type: string, value: string, confidence: number): IdentitySignal => ({
   id: `sig_${type}`,
   type,
   value,
-  confidence: 3,
+  confidence,
   customerId: "cust_1",
   createdAt: new Date(),
 });
@@ -15,8 +15,8 @@ const makeSignal = (type: string, value: string): IdentitySignal => ({
 describe("resolveProfileMergeConflict", () => {
   it("picks the customer with the highest-confidence signal as winner", () => {
     const matches: CustomerSignalMatch[] = [
-      { customerId: "cust_a", matchedSignals: [{ ...makeSignal("device_id", "dev_abc"), confidence: 2 }] },
-      { customerId: "cust_b", matchedSignals: [makeSignal("email", "b@example.com")] },
+      { customerId: "cust_a", matchedSignals: [makeSignal("device_id", "dev_abc", 2)], confidence: 2 },
+      { customerId: "cust_b", matchedSignals: [makeSignal("email", "b@example.com", 3)], confidence: 3 },
     ];
 
     const { winner, losers } = resolveProfileMergeConflict(matches);
@@ -27,9 +27,9 @@ describe("resolveProfileMergeConflict", () => {
 
   it("returns all other customers as losers when three or more match", () => {
     const matches: CustomerSignalMatch[] = [
-      { customerId: "cust_a", matchedSignals: [{ ...makeSignal("device_id", "dev_1"), confidence: 2 }] },
-      { customerId: "cust_b", matchedSignals: [makeSignal("email", "b@example.com")] },
-      { customerId: "cust_c", matchedSignals: [makeSignal("phone", "+61400000002")] },
+      { customerId: "cust_a", matchedSignals: [makeSignal("device_id", "dev_1", 2)], confidence: 2 },
+      { customerId: "cust_b", matchedSignals: [makeSignal("email", "b@example.com", 3)], confidence: 3 },
+      { customerId: "cust_c", matchedSignals: [makeSignal("phone", "+61400000002", 3)], confidence: 3 },
     ];
 
     const { winner, losers } = resolveProfileMergeConflict(matches);
@@ -42,8 +42,8 @@ describe("resolveProfileMergeConflict", () => {
 
   it("uses first match as winner when signal confidences are equal", () => {
     const matches: CustomerSignalMatch[] = [
-      { customerId: "cust_a", matchedSignals: [makeSignal("email", "a@example.com")] },
-      { customerId: "cust_b", matchedSignals: [makeSignal("phone", "+61400000001")] },
+      { customerId: "cust_a", matchedSignals: [makeSignal("email", "a@example.com", 3)], confidence: 3 },
+      { customerId: "cust_b", matchedSignals: [makeSignal("phone", "+61400000001", 3)], confidence: 3 },
     ];
 
     const { winner, losers } = resolveProfileMergeConflict(matches);

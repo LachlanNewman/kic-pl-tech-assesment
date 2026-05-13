@@ -103,7 +103,7 @@ describe("identityResolution", () => {
 
   it("2.2 - single match writes new signals, writes event, and returns the matched customer ID", async () => {
     mockGroupSignalsByCustomers.mockReturnValueOnce([
-      { customerId: "cust_existing", matchedSignals: [] },
+      { customerId: "cust_existing", matchedSignals: [], confidence: 3 },
     ]);
 
     const result = await identityResolution(shopifyOrder);
@@ -117,8 +117,8 @@ describe("identityResolution", () => {
   it("2.3 - multiple matches calls merge helpers per loser and returns the winner ID", async () => {
     const winnerSignal: IdentitySignal = { id: "sig_a1", customerId: "cust_a", type: "email", value: "jane@example.com", confidence: 3, createdAt: new Date() };
     const loserSignal: IdentitySignal = { id: "sig_b1", customerId: "cust_b", type: "phone", value: "+61411000000", confidence: 3, createdAt: new Date() };
-    const winner: CustomerSignalMatch = { customerId: "cust_a", matchedSignals: [winnerSignal] };
-    const loser: CustomerSignalMatch = { customerId: "cust_b", matchedSignals: [loserSignal] };
+    const winner: CustomerSignalMatch = { customerId: "cust_a", matchedSignals: [winnerSignal], confidence: 3 };
+    const loser: CustomerSignalMatch = { customerId: "cust_b", matchedSignals: [loserSignal], confidence: 3 };
     const loserEvents = [{ id: "evt_b1" }];
 
     mockGroupSignalsByCustomers.mockReturnValueOnce([winner, loser]);

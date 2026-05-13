@@ -9,6 +9,7 @@ export type Signal = {
 export type CustomerSignalMatch = {
   customerId: string;
   matchedSignals: IdentitySignal[];
+  confidence: number;
 };
 
 export type SignalFields = {
