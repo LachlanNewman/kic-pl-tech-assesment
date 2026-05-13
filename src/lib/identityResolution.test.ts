@@ -12,6 +12,11 @@ vi.mock("./events", () => ({ findEventByExternalId: vi.fn(), createEvent: vi.fn(
 vi.mock("./identity/groupSignalsByCustomer", () => ({ groupSignalsByCustomers: vi.fn() }));
 vi.mock("./identity/createCustomerProfile", () => ({ createCustomerProfile: vi.fn() }));
 vi.mock("./identity/resolveProfileMergeConflict", () => ({ resolveProfileMergeConflict: vi.fn() }));
+vi.mock("./events/findEventsForCustomer", () => ({ findEventsForCustomer: vi.fn() }));
+vi.mock("./events/updateEventsToNewCustomer", () => ({ updateEventsToNewCustomer: vi.fn() }));
+vi.mock("./signals/mergeSignal", () => ({ mergeSignal: vi.fn() }));
+vi.mock("./merge/createMergeLog", () => ({ createMergeLog: vi.fn() }));
+vi.mock("./identity/setCustomerAsMerged", () => ({ setCustomerAsMerged: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: { $transaction: vi.fn() } }));
 
 import { identityResolution } from "./identityResolution";
@@ -21,6 +26,11 @@ import { findEventByExternalId, createEvent } from "./events";
 import { groupSignalsByCustomers } from "./identity/groupSignalsByCustomer";
 import { createCustomerProfile } from "./identity/createCustomerProfile";
 import { resolveProfileMergeConflict } from "./identity/resolveProfileMergeConflict";
+import { findEventsForCustomer } from "./events/findEventsForCustomer";
+import { updateEventsToNewCustomer } from "./events/updateEventsToNewCustomer";
+import { mergeSignal } from "./signals/mergeSignal";
+import { createMergeLog } from "./merge/createMergeLog";
+import { setCustomerAsMerged } from "./identity/setCustomerAsMerged";
 import { prisma } from "@/lib/db";
 
 const mockNormalizeSignals = vi.mocked(normalizeSignals);
@@ -31,19 +41,14 @@ const mockGroupSignalsByCustomers = vi.mocked(groupSignalsByCustomers);
 const mockCreateCustomerProfile = vi.mocked(createCustomerProfile);
 const mockCreateSignals = vi.mocked(createSignals);
 const mockResolveProfileMergeConflict = vi.mocked(resolveProfileMergeConflict);
+const mockFindEventsForCustomer = vi.mocked(findEventsForCustomer);
+const mockUpdateEventsToNewCustomer = vi.mocked(updateEventsToNewCustomer);
+const mockMergeSignal = vi.mocked(mergeSignal);
+const mockCreateMergeLog = vi.mocked(createMergeLog);
+const mockSetCustomerAsMerged = vi.mocked(setCustomerAsMerged);
 const mockTransaction = vi.mocked(prisma.$transaction);
 
-const mockTxEventFindMany = vi.fn();
-const mockTxSignalUpdateMany = vi.fn();
-const mockTxMergeLogCreate = vi.fn();
-const mockTxCustomerUpdateMany = vi.fn();
-
-const mockTx = {
-  event: { findMany: mockTxEventFindMany },
-  identitySignal: { updateMany: mockTxSignalUpdateMany },
-  mergeLog: { create: mockTxMergeLogCreate },
-  customer: { updateMany: mockTxCustomerUpdateMany },
-};
+const mockTx = {};
 
 const shopifyOrder: ShopifyWebhookPayload = {
   source: "shopify",
@@ -70,6 +75,7 @@ describe("identityResolution", () => {
     mockNormalizeSignals.mockReturnValue(fourSignals);
     mockFindSignalsByValues.mockResolvedValue([]);
     mockGroupSignalsByCustomers.mockReturnValue([]);
+    mockFindEventsForCustomer.mockResolvedValue([]);
     mockTransaction.mockImplementation((fn: any) => fn(mockTx));
   });
 
@@ -108,28 +114,24 @@ describe("identityResolution", () => {
     expect(result).toBe("cust_existing");
   });
 
-  it("2.3 - multiple matches creates a merge log per loser and returns the winner ID", async () => {
+  it("2.3 - multiple matches calls merge helpers per loser and returns the winner ID", async () => {
     const winnerSignal: IdentitySignal = { id: "sig_a1", customerId: "cust_a", type: "email", value: "jane@example.com", confidence: 3, createdAt: new Date() };
     const loserSignal: IdentitySignal = { id: "sig_b1", customerId: "cust_b", type: "phone", value: "+61411000000", confidence: 3, createdAt: new Date() };
     const winner: CustomerSignalMatch = { customerId: "cust_a", matchedSignals: [winnerSignal] };
     const loser: CustomerSignalMatch = { customerId: "cust_b", matchedSignals: [loserSignal] };
+    const loserEvents = [{ id: "evt_b1" }];
 
     mockGroupSignalsByCustomers.mockReturnValueOnce([winner, loser]);
     mockResolveProfileMergeConflict.mockReturnValueOnce({ winner, losers: [loser] });
-    mockTxEventFindMany.mockResolvedValueOnce([{ id: "evt_b1" }]);
+    mockFindEventsForCustomer.mockResolvedValueOnce(loserEvents as any);
 
     const result = await identityResolution(shopifyOrder);
 
-    expect(mockTxSignalUpdateMany).toHaveBeenCalledWith({ where: { customerId: "cust_b" }, data: { customerId: "cust_a" } });
-    expect(mockTxMergeLogCreate).toHaveBeenCalledWith({
-      data: {
-        winnerId: "cust_a",
-        loserId: "cust_b",
-        mergedSignals: { create: [{ identitySignalId: "sig_b1" }] },
-        mergedEvents: { create: [{ eventId: "evt_b1" }] },
-      },
-    });
-    expect(mockTxCustomerUpdateMany).toHaveBeenCalledWith({ where: { id: { in: ["cust_b"] } }, data: { mergedInto: "cust_a" } });
+    expect(mockFindEventsForCustomer).toHaveBeenCalledWith(mockTx, "cust_b");
+    expect(mockMergeSignal).toHaveBeenCalledWith(mockTx, "cust_a", "cust_b");
+    expect(mockUpdateEventsToNewCustomer).toHaveBeenCalledWith(mockTx, "cust_b", "cust_a");
+    expect(mockCreateMergeLog).toHaveBeenCalledWith(mockTx, winner, loser, loserEvents);
+    expect(mockSetCustomerAsMerged).toHaveBeenCalledWith(mockTx, "cust_a", "cust_b");
     expect(mockCreateEvent).toHaveBeenCalledWith(mockTx, { source: "shopify", signals: {} }, shopifyOrder, "cust_a");
     expect(result).toBe("cust_a");
   });

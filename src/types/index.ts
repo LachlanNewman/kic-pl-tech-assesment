@@ -1,4 +1,4 @@
-import { IdentitySignal } from "@prisma/client";
+import { Customer, Event, IdentitySignal } from "@prisma/client";
 import { z } from "zod/v4";
 
 export type Signal = {
@@ -23,6 +23,9 @@ export type NormalizedInput = {
   source: "shopify" | "mindbody";
   signals: SignalFields;
 };
+
+export type CustomerProfile = Customer & { events: Event[] };
+
 
 export const ShopifyOrderSchema = z.object({
   id: z.string(),
