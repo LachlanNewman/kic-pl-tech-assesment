@@ -1,11 +1,12 @@
 import { WebhookPayload } from "@/types";
 import { getNormalizedInput, normalizeSignals, createSignals } from "./signals";
 import { createEvent, findEventByExternalId } from "./events";
-import { getCustomerIdsFromSignals } from "./identity/getCustomerIdsFromSignals";
 import { createCustomerProfile } from "./identity/createCustomerProfile";
 import { resolveProfileMergeConflict } from "./identity/resolveProfileMergeConflict";
 import logger from "./logger";
 import { prisma, TransactionClient } from "./db";
+import { findSignalsByValues } from "./signals/findSignalsByValues";
+import { groupSignalsByCustomers } from "./identity/groupSignalsByCustomer";
 
 export async function identityResolution(payload: WebhookPayload): Promise<string> {
   logger.info("identityResolution: running");
@@ -22,10 +23,13 @@ export async function identityResolution(payload: WebhookPayload): Promise<strin
   const signals = normalizeSignals(input);
   logger.debug({ signalCount: signals.length }, "identityResolution: signals normalized");
 
-  const matches = await getCustomerIdsFromSignals(signals);
+  const matches = await findSignalsByValues(signals);
   logger.debug({ matchCount: matches.length }, "identityResolution: matches found");
 
-  if (matches.length === 0) {
+  const groupedMatches = groupSignalsByCustomers(matches);
+  logger.debug({ groupedMatchCount: groupedMatches.length }, "identityResolution: grouped matches");
+
+  if (groupedMatches.length === 0) {
     logger.debug("identityResolution: no matches, creating new profile");
     return prisma.$transaction(async (tx: TransactionClient) => {
       const customerId = await createCustomerProfile(tx);
@@ -38,8 +42,8 @@ export async function identityResolution(payload: WebhookPayload): Promise<strin
     });
   }
 
-  if (matches.length === 1) {
-    const customerId = matches[0].customerId;
+  if (groupedMatches.length === 1) {
+    const customerId = groupedMatches[0].customerId;
     logger.debug({ customerId }, "identityResolution: single match found");
     return prisma.$transaction(async (tx: TransactionClient) => {
       await createSignals(tx, customerId, signals);
@@ -51,27 +55,28 @@ export async function identityResolution(payload: WebhookPayload): Promise<strin
   }
 
   logger.debug({}, "identityResolution: multiple matches, resolving merge conflict");
-  const { winner, losers } = resolveProfileMergeConflict(matches);
+
+  const { winner, losers } = resolveProfileMergeConflict(groupedMatches);
   logger.debug({ winner, losers }, "identityResolution: merge resolved");
+
   return prisma.$transaction(async (tx: TransactionClient) => {
     for (const loser of losers) {
-      const loserSignals = await tx.identitySignal.findMany({
-        where: { customerId: loser },
-        select: { id: true },
-      });
-      logger.debug({ loser, signalCount: loserSignals.length }, "identityResolution: loser signals fetched");
-
       const loserEvents = await tx.event.findMany({
-        where: { customerId: loser },
+        where: { customerId: loser.customerId },
         select: { id: true },
       });
       logger.debug({ loser, eventCount: loserEvents.length }, "identityResolution: loser events fetched");
 
+      await tx.identitySignal.updateMany({
+        where: { customerId: loser.customerId },
+        data: { customerId: winner.customerId },
+      });
+
       await tx.mergeLog.create({
         data: {
-          winnerId: winner,
-          loserId: loser,
-          mergedSignals: { create: loserSignals.map((s:{ id: string }) => ({ identitySignalId: s.id })) },
+          winnerId: winner.customerId,
+          loserId: loser.customerId,
+          mergedSignals: { create: loser.matchedSignals.map((s) => ({ identitySignalId: s.id })) },
           mergedEvents: { create: loserEvents.map((e:{ id: string }) => ({ eventId: e.id })) },
         },
       });
@@ -79,12 +84,13 @@ export async function identityResolution(payload: WebhookPayload): Promise<strin
     }
 
     await tx.customer.updateMany({
-      where: { id: { in: losers } },
-      data: { mergedInto: winner },
+      where: { id: { in: losers.map((l) => l.customerId) } },
+      data: { mergedInto: winner.customerId },
     });
+
     logger.debug({ winner, losers }, "identityResolution: customer profiles merged");
-    await createEvent(tx, input, payload, winner);
+    await createEvent(tx, input, payload, winner.customerId);
     logger.debug({ winner }, "identityResolution: event written for winner profile");
-    return winner;
+    return winner.customerId;
   });
 }

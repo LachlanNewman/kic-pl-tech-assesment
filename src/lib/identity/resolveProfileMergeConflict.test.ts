@@ -1,44 +1,54 @@
 import { describe, it, expect } from "vitest";
 import { resolveProfileMergeConflict } from "./resolveProfileMergeConflict";
 import type { CustomerSignalMatch } from "@/types";
+import type { IdentitySignal } from "@prisma/client";
+
+const makeSignal = (type: string, value: string): IdentitySignal => ({
+  id: `sig_${type}`,
+  type,
+  value,
+  confidence: 3,
+  customerId: "cust_1",
+  createdAt: new Date(),
+});
 
 describe("resolveProfileMergeConflict", () => {
-  it("picks the customer with the most matched signals as winner", () => {
+  it("picks the customer with the highest-confidence signal as winner", () => {
     const matches: CustomerSignalMatch[] = [
-      { customerId: "cust_a", matchedSignals: [{ type: "email", value: "a@example.com" }] },
-      { customerId: "cust_b", matchedSignals: [{ type: "email", value: "b@example.com" }, { type: "phone", value: "+61400000001" }] },
+      { customerId: "cust_a", matchedSignals: [{ ...makeSignal("device_id", "dev_abc"), confidence: 2 }] },
+      { customerId: "cust_b", matchedSignals: [makeSignal("email", "b@example.com")] },
     ];
 
     const { winner, losers } = resolveProfileMergeConflict(matches);
 
-    expect(winner).toBe("cust_b");
-    expect(losers).toEqual(["cust_a"]);
+    expect(winner.customerId).toBe("cust_b");
+    expect(losers.map((l) => l.customerId)).toEqual(["cust_a"]);
   });
 
   it("returns all other customers as losers when three or more match", () => {
     const matches: CustomerSignalMatch[] = [
-      { customerId: "cust_a", matchedSignals: [{ type: "email", value: "a@example.com" }] },
-      { customerId: "cust_b", matchedSignals: [{ type: "email", value: "b@example.com" }, { type: "phone", value: "+61400000001" }, { type: "device_id", value: "dev_1" }] },
-      { customerId: "cust_c", matchedSignals: [{ type: "phone", value: "+61400000002" }, { type: "device_id", value: "dev_2" }] },
+      { customerId: "cust_a", matchedSignals: [{ ...makeSignal("device_id", "dev_1"), confidence: 2 }] },
+      { customerId: "cust_b", matchedSignals: [makeSignal("email", "b@example.com")] },
+      { customerId: "cust_c", matchedSignals: [makeSignal("phone", "+61400000002")] },
     ];
 
     const { winner, losers } = resolveProfileMergeConflict(matches);
 
-    expect(winner).toBe("cust_b");
-    expect(losers).toContain("cust_a");
-    expect(losers).toContain("cust_c");
+    expect(winner.customerId).toBe("cust_b");
+    expect(losers.map((l) => l.customerId)).toContain("cust_a");
+    expect(losers.map((l) => l.customerId)).toContain("cust_c");
     expect(losers).toHaveLength(2);
   });
 
-  it("uses first match as winner when signal counts are equal", () => {
+  it("uses first match as winner when signal confidences are equal", () => {
     const matches: CustomerSignalMatch[] = [
-      { customerId: "cust_a", matchedSignals: [{ type: "email", value: "a@example.com" }] },
-      { customerId: "cust_b", matchedSignals: [{ type: "phone", value: "+61400000001" }] },
+      { customerId: "cust_a", matchedSignals: [makeSignal("email", "a@example.com")] },
+      { customerId: "cust_b", matchedSignals: [makeSignal("phone", "+61400000001")] },
     ];
 
     const { winner, losers } = resolveProfileMergeConflict(matches);
 
-    expect(winner).toBe("cust_a");
-    expect(losers).toEqual(["cust_b"]);
+    expect(winner.customerId).toBe("cust_a");
+    expect(losers.map((l) => l.customerId)).toEqual(["cust_b"]);
   });
 });

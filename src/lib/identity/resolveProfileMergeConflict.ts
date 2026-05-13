@@ -1,17 +1,22 @@
 import { CustomerSignalMatch } from "@/types";
+import { getSignalConfidence } from "../signals/signalConfig";
 import logger from "../logger";
 
 export type MergeResolution = {
-  winner: string;
-  losers: string[];
+  winner: CustomerSignalMatch;
+  losers: CustomerSignalMatch[];
 };
+
+function maxConfidence(match: CustomerSignalMatch): number {
+  return Math.max(0, ...match.matchedSignals.map((s) => getSignalConfidence(s.type)));
+}
 
 export function resolveProfileMergeConflict(matches: CustomerSignalMatch[]): MergeResolution {
   logger.info("resolveProfileMergeConflict: running");
   logger.debug({ matchCount: matches.length, customerIds: matches.map((m) => m.customerId) }, "resolveProfileMergeConflict: params");
-  const sorted = [...matches].sort((a, b) => b.matchedSignals.length - a.matchedSignals.length);
-  const winner = sorted[0].customerId;
-  const losers = sorted.slice(1).map((m) => m.customerId);
-  logger.debug({ winner, losers }, "resolveProfileMergeConflict: resolved");
+  const sorted = [...matches].sort((a, b) => maxConfidence(b) - maxConfidence(a));
+  const winner = sorted[0];
+  const losers = sorted.slice(1);
+  logger.debug({ winner: winner.customerId, losers: losers.map((l) => l.customerId) }, "resolveProfileMergeConflict: resolved");
   return { winner, losers };
 }

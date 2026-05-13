@@ -49,11 +49,10 @@ describe("identityResolution", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockEventFindUnique.mockResolvedValue(null);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockTransaction.mockImplementation((fn: any) =>
       fn({
         customer: { create: mockCustomerCreate, updateMany: mockCustomerUpdateMany },
-        identitySignal: { createMany: mockCreateMany, findMany: mockSignalFindMany },
+        identitySignal: { createMany: mockCreateMany, findMany: mockSignalFindMany, updateMany: vi.fn() },
         event: { create: mockEventCreate, findMany: mockEventFindManyTx },
         mergeLog: { create: mockMergeLogCreate },
       })
@@ -133,20 +132,15 @@ describe("identityResolution", () => {
 
   it("2.3 - multiple matches creates a merge log per loser and returns the winner ID", async () => {
     mockFindMany.mockResolvedValueOnce([
-      { customerId: "cust_a", type: "email", value: "jane@example.com" },
-      { customerId: "cust_b", type: "phone", value: "+61411000000" },
+      { id: "sig_a1", customerId: "cust_a", type: "email", value: "jane@example.com", confidence: 3, createdAt: new Date() },
+      { id: "sig_b1", customerId: "cust_b", type: "phone", value: "+61411000000", confidence: 3, createdAt: new Date() },
     ] as Awaited<ReturnType<typeof mockFindMany>>);
-    mockSignalFindMany.mockResolvedValueOnce([{ id: "sig_b1" }]);
     mockEventFindManyTx.mockResolvedValueOnce([{ id: "evt_b1" }]);
     mockMergeLogCreate.mockResolvedValueOnce({ id: "merge_1" });
 
     const result = await identityResolution(shopifyOrder);
 
     expect(mockCustomerCreate).not.toHaveBeenCalled();
-    expect(mockSignalFindMany).toHaveBeenCalledWith({
-      where: { customerId: "cust_b" },
-      select: { id: true },
-    });
     expect(mockEventFindManyTx).toHaveBeenCalledWith({
       where: { customerId: "cust_b" },
       select: { id: true },

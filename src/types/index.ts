@@ -1,3 +1,4 @@
+import { IdentitySignal } from "@prisma/client";
 import { z } from "zod/v4";
 
 export type Signal = {
@@ -7,7 +8,7 @@ export type Signal = {
 
 export type CustomerSignalMatch = {
   customerId: string;
-  matchedSignals: Signal[];
+  matchedSignals: IdentitySignal[];
 };
 
 export type SignalFields = {
