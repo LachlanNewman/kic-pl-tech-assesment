@@ -1,10 +1,10 @@
-import { CustomerSignalMatch } from "@/types";
-import logger from "../logger";
-import { IdentitySignal } from "@prisma/client";
+import { CustomerSignalMatch } from '@/types';
+import logger from '../logger';
+import { IdentitySignal } from '@prisma/client';
 
 export function groupSignalsByCustomers(rows: IdentitySignal[]): CustomerSignalMatch[] {
-  logger.info("groupSignalsByCustomers: running");
-  logger.debug({ rowCount: rows.length }, "groupSignalsByCustomers: params");
+  logger.info('groupSignalsByCustomers: running');
+  logger.debug({ rowCount: rows.length }, 'groupSignalsByCustomers: params');
 
   const customerSignalMap = new Map<string, number>();
   const customerSignals: CustomerSignalMatch[] = [];
@@ -12,9 +12,12 @@ export function groupSignalsByCustomers(rows: IdentitySignal[]): CustomerSignalM
     const index = customerSignalMap.get(row.customerId);
     if (index === undefined) {
       customerSignalMap.set(row.customerId, customerSignals.length);
-      customerSignals.push({ customerId: row.customerId, matchedSignals: [row], confidence: 0  + row.confidence });
-    }
-    else{
+      customerSignals.push({
+        customerId: row.customerId,
+        matchedSignals: [row],
+        confidence: 0 + row.confidence,
+      });
+    } else {
       customerSignals[index].matchedSignals.push(row);
       customerSignals[index].confidence += row.confidence;
     }

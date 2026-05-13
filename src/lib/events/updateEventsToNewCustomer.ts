@@ -1,10 +1,20 @@
-import { TransactionClient } from "../db";
-import logger from "../logger";
+import { TransactionClient } from '../db';
+import { errors } from '../errors';
+import logger from '../logger';
 
-export async function updateEventsToNewCustomer(tx: TransactionClient, oldCustomerId: string, newCustomerId: string){
-    logger.info("updateEventToNewCustomer: running");
-    return tx.event.updateMany({
-        where: { customerId: oldCustomerId },
-        data: { customerId: newCustomerId },
+export async function updateEventsToNewCustomer(
+  tx: TransactionClient,
+  oldCustomerId: string,
+  newCustomerId: string,
+) {
+  logger.info('updateEventToNewCustomer: running');
+  try {
+    await tx.event.updateMany({
+      where: { customerId: oldCustomerId },
+      data: { customerId: newCustomerId },
     });
+  } catch (error) {
+    logger.error({ error }, 'updateEventToNewCustomer: error updating events');
+    throw errors.failedToUpdateEvents(error);
+  }
 }

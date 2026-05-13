@@ -1,25 +1,41 @@
-import { NextRequest, NextResponse } from "next/server";
-import { MindbodyBookingSchema } from "@/types";
-import z from "zod/v4";
-import { identityResolution } from "@/lib/identityResolution";
-import logger from "@/lib/logger";
+import { NextRequest, NextResponse } from 'next/server';
+import { MindbodyBookingSchema } from '@/types';
+import z from 'zod/v4';
+import { identityResolution } from '@/lib/identityResolution';
+import logger from '@/lib/logger';
+import { errors, HttpError } from '@/lib/errors';
 
 export async function POST(req: NextRequest) {
-  logger.info("POST /api/webhooks/mindbody: running");
+  logger.info('POST /api/webhooks/mindbody: running');
   const body = await req.json();
 
   const result = MindbodyBookingSchema.safeParse(body);
 
   if (!result.success) {
-    logger.error({ errors: z.treeifyError(result.error) }, "POST /api/webhooks/mindbody: invalid payload");
+    logger.error(
+      { errors: z.treeifyError(result.error) },
+      'POST /api/webhooks/mindbody: invalid payload',
+    );
     return NextResponse.json(
-      { error: "Invalid payload", details: z.treeifyError(result.error) },
-      { status: 400 }
+      { error: 'Invalid payload', details: z.treeifyError(result.error) },
+      { status: 400 },
     );
   }
 
-  const customerId = await identityResolution({ source: "mindbody", type: "booking.created", ...result.data });
+  try {
+    const customerId = await identityResolution({
+      source: 'mindbody',
+      type: 'booking.created',
+      ...result.data,
+    });
 
-  logger.debug({ bookingId: result.data.id, customerId }, "POST /api/webhooks/mindbody: processed");
-  return NextResponse.json({ received: true });
+    logger.debug(
+      { bookingId: result.data.id, customerId },
+      'POST /api/webhooks/mindbody: processed',
+    );
+    return NextResponse.json({ received: true });
+  } catch (e) {
+    const error = HttpError.fromError(e, errors.unknownError);
+    return NextResponse.json({ error: error.message }, { status: error.statusCode });
+  }
 }

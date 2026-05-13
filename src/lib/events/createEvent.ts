@@ -1,15 +1,16 @@
-import { TransactionClient } from "../db";
-import { NormalizedInput, WebhookPayload } from "@/types";
-import logger from "../logger";
+import { TransactionClient } from '../db';
+import { NormalizedInput, WebhookPayload } from '@/types';
+import logger from '../logger';
+import { errors } from '../errors';
 
 function getEventOccurredAt(payload: WebhookPayload): Date {
   switch (payload.source) {
-    case "shopify":
+    case 'shopify':
       return new Date(payload.created_at);
-    case "mindbody":
+    case 'mindbody':
       return new Date(payload.scheduled_at);
     default:
-      throw new Error("unreachable: unknown payload source");
+      throw new Error('unreachable: unknown payload source');
   }
 }
 
@@ -17,21 +18,26 @@ export async function createEvent(
   tx: TransactionClient,
   input: NormalizedInput,
   payload: WebhookPayload,
-  customerId: string
+  customerId: string,
 ): Promise<void> {
-  logger.info("createEvent: running");
-  logger.debug({ source: input.source, type: payload.type, customerId }, "createEvent: params");
+  logger.info('createEvent: running');
+  logger.debug({ source: input.source, type: payload.type, customerId }, 'createEvent: params');
 
-  const occurredAt = getEventOccurredAt(payload);
+  try {
+    const occurredAt = getEventOccurredAt(payload);
 
-  await tx.event.create({
-    data: {
-      source: input.source,
-      type: payload.type,
-      externalId: payload.id,
-      payload: JSON.stringify(payload),
-      customerId,
-      occurredAt,
-    },
-  });
+    await tx.event.create({
+      data: {
+        source: input.source,
+        type: payload.type,
+        externalId: payload.id,
+        payload: JSON.stringify(payload),
+        customerId,
+        occurredAt,
+      },
+    });
+  } catch (error) {
+    logger.error({ error }, 'createEvent: error creating event');
+    throw errors.failedToCreateEvent(error);
+  }
 }

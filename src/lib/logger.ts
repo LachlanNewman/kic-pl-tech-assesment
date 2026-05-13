@@ -1,4 +1,4 @@
-import pino from 'pino'
+import pino from 'pino';
 
 const logger = pino(
   process.env.NODE_ENV === 'development'
@@ -11,7 +11,7 @@ const logger = pino(
       }
     : {
         level: process.env.LOG_LEVEL ?? 'info',
-      }
-)
+      },
+);
 
-export default logger
+export default logger;

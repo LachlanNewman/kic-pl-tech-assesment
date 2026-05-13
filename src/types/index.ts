@@ -1,5 +1,5 @@
-import { Customer, Event, IdentitySignal } from "@prisma/client";
-import { z } from "zod/v4";
+import { Customer, Event, IdentitySignal } from '@prisma/client';
+import { z } from 'zod/v4';
 
 export type Signal = {
   type: string;
@@ -21,12 +21,11 @@ export type SignalFields = {
 };
 
 export type NormalizedInput = {
-  source: "shopify" | "mindbody";
+  source: 'shopify' | 'mindbody';
   signals: SignalFields;
 };
 
 export type CustomerProfile = Customer & { events: Event[] };
-
 
 export const ShopifyOrderSchema = z.object({
   id: z.string(),
@@ -50,6 +49,9 @@ export const MindbodyBookingSchema = z.object({
 
 export type MindbodyBooking = z.infer<typeof MindbodyBookingSchema>;
 
-export type ShopifyWebhookPayload = ShopifyOrder & { source: "shopify"; type: "order.created" };
-export type MindbodyWebhookPayload = MindbodyBooking & { source: "mindbody"; type: "booking.created" };
+export type ShopifyWebhookPayload = ShopifyOrder & { source: 'shopify'; type: 'order.created' };
+export type MindbodyWebhookPayload = MindbodyBooking & {
+  source: 'mindbody';
+  type: 'booking.created';
+};
 export type WebhookPayload = ShopifyWebhookPayload | MindbodyWebhookPayload;
