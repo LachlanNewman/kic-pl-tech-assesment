@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "test": "vitest",
+    "test:integration": "vitest --config=vitest.integration.config.ts",
     "lint": "eslint",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio"

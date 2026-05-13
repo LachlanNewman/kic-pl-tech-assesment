@@ -2,11 +2,11 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 import { createSignals } from "./createSignals";
 import { TransactionClient } from "../db";
 
-const mockCreateMany = vi.fn();
+const mockUpsert = vi.fn();
 
 const tx = {
   identitySignal: {
-    createMany: mockCreateMany,
+    upsert: mockUpsert,
   },
 } as unknown as TransactionClient;
 
@@ -15,32 +15,35 @@ describe("createSignals", () => {
     vi.clearAllMocks();
   });
 
-  it("calls createMany with mapped signal data and customerId", async () => {
-    mockCreateMany.mockResolvedValueOnce({ count: 2 });
+  it("upserts each signal with confidence and customerId, no-op on conflict", async () => {
+    mockUpsert.mockResolvedValue({});
 
     await createSignals(tx, "cust_1", [
       { type: "email", value: "a@b.com" },
       { type: "phone", value: "0400000000" },
     ]);
 
-    expect(mockCreateMany).toHaveBeenCalledWith({
-      data: [
-        { type: "email", value: "a@b.com", confidence: 3, customerId: "cust_1" },
-        { type: "phone", value: "0400000000", confidence: 3, customerId: "cust_1" },
-      ],
+    expect(mockUpsert).toHaveBeenCalledTimes(2);
+    expect(mockUpsert).toHaveBeenCalledWith({
+      where: { type_value: { type: "email", value: "a@b.com" } },
+      create: { type: "email", value: "a@b.com", confidence: 3, customerId: "cust_1" },
+      update: {},
+    });
+    expect(mockUpsert).toHaveBeenCalledWith({
+      where: { type_value: { type: "phone", value: "0400000000" } },
+      create: { type: "phone", value: "0400000000", confidence: 3, customerId: "cust_1" },
+      update: {},
     });
   });
 
-  it("calls createMany with an empty array when signals is empty", async () => {
-    mockCreateMany.mockResolvedValueOnce({ count: 0 });
-
+  it("does nothing when signals is empty", async () => {
     await createSignals(tx, "cust_1", []);
 
-    expect(mockCreateMany).toHaveBeenCalledWith({ data: [] });
+    expect(mockUpsert).not.toHaveBeenCalled();
   });
 
-  it("propagates unexpected errors thrown by createMany", async () => {
-    mockCreateMany.mockRejectedValueOnce(new Error("database unavailable"));
+  it("propagates unexpected errors thrown by upsert", async () => {
+    mockUpsert.mockRejectedValueOnce(new Error("database unavailable"));
 
     await expect(
       createSignals(tx, "cust_1", [{ type: "email", value: "a@b.com" }])

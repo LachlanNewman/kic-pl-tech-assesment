@@ -11,9 +11,15 @@ export async function createSignals(
   logger.info("createSignals: running");
   logger.debug({ customerId, signals }, "createSignals: params");
 
-  await tx.identitySignal.createMany({
-    data: signals.map((s) => ({ type: s.type, value: s.value, confidence: getSignalConfidence(s.type), customerId })),
-  });
+  await Promise.all(
+    signals.map((s) =>
+      tx.identitySignal.upsert({
+        where: { type_value: { type: s.type, value: s.value } },
+        create: { type: s.type, value: s.value, confidence: getSignalConfidence(s.type), customerId },
+        update: {},
+      })
+    )
+  );
 
   logger.debug({ customerId, count: signals.length }, "createSignals: signals written");
 }
